@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brass: Birmingham</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&family=Source+Sans+Pro:wght@300;400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Setup Screen -->
+    <div id="setup-screen" class="screen active">
+        <div class="setup-container">
+            <h1 class="game-title">Brass</h1>
+            <h2 class="game-subtitle">Birmingham</h2>
+            <p class="game-tagline">An Economic Strategy Game &middot; 1770&ndash;1870</p>
+
+            <div class="setup-form">
+                <div class="form-group">
+                    <label>Number of Players</label>
+                    <div class="player-count-selector">
+                        <button class="count-btn" data-count="2">2</button>
+                        <button class="count-btn active" data-count="3">3</button>
+                        <button class="count-btn" data-count="4">4</button>
+                    </div>
+                </div>
+
+                <div id="player-names" class="form-group">
+                    <label>Player Names</label>
+                    <div class="player-name-inputs"></div>
+                </div>
+
+                <button id="start-game-btn" class="btn-primary">Begin Game</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Screen -->
+    <div id="game-screen" class="screen">
+        <!-- Top Bar -->
+        <div id="top-bar">
+            <div class="era-indicator">
+                <span id="era-label">Canal Era</span>
+                <span id="round-label">Round 1</span>
+            </div>
+            <div class="turn-info">
+                <span id="current-player-label"></span>
+                <span id="actions-remaining-label"></span>
+            </div>
+            <div class="market-summary">
+                <div class="market-item" id="coal-market-summary">
+                    <span class="market-icon coal-icon"></span>
+                    <span>Coal: <span id="coal-price">£1</span></span>
+                </div>
+                <div class="market-item" id="iron-market-summary">
+                    <span class="market-icon iron-icon"></span>
+                    <span>Iron: <span id="iron-price">£1</span></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Game Area -->
+        <div id="game-area">
+            <!-- Board -->
+            <div id="board-container">
+                <svg id="game-board" viewBox="0 0 900 850" preserveAspectRatio="xMidYMid meet">
+                    <!-- Board content rendered by JS -->
+                </svg>
+            </div>
+
+            <!-- Right Panel -->
+            <div id="right-panel">
+                <!-- Player Info Panels -->
+                <div id="player-panels"></div>
+
+                <!-- Markets -->
+                <div id="markets-panel">
+                    <h3>Markets</h3>
+                    <div id="coal-market" class="market">
+                        <div class="market-label">Coal</div>
+                        <div class="market-track" id="coal-track"></div>
+                    </div>
+                    <div id="iron-market" class="market">
+                        <div class="market-label">Iron</div>
+                        <div class="market-track" id="iron-track"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Panel - Player Hand & Actions -->
+        <div id="bottom-panel">
+            <div id="hand-container">
+                <div class="hand-label">Your Hand</div>
+                <div id="player-hand"></div>
+            </div>
+            <div id="action-panel">
+                <div class="action-label">Actions</div>
+                <div id="action-buttons">
+                    <button class="action-btn" data-action="build" title="Build an industry tile">
+                        <span class="action-icon">🏗️</span>
+                        <span>Build</span>
+                    </button>
+                    <button class="action-btn" data-action="network" title="Build a canal or rail link">
+                        <span class="action-icon">🔗</span>
+                        <span>Network</span>
+                    </button>
+                    <button class="action-btn" data-action="develop" title="Remove lower-level tiles">
+                        <span class="action-icon">📈</span>
+                        <span>Develop</span>
+                    </button>
+                    <button class="action-btn" data-action="sell" title="Sell cotton, goods, or pottery">
+                        <span class="action-icon">💰</span>
+                        <span>Sell</span>
+                    </button>
+                    <button class="action-btn" data-action="loan" title="Take a £30 loan">
+                        <span class="action-icon">🏦</span>
+                        <span>Loan</span>
+                    </button>
+                    <button class="action-btn" data-action="scout" title="Trade 3 cards for 2 wild cards">
+                        <span class="action-icon">🔍</span>
+                        <span>Scout</span>
+                    </button>
+                    <button class="action-btn pass-btn" data-action="pass" title="Pass (discard a card)">
+                        <span class="action-icon">⏭️</span>
+                        <span>Pass</span>
+                    </button>
+                </div>
+            </div>
+            <!-- Player Mat (industry tiles remaining) -->
+            <div id="player-mat-container">
+                <div class="mat-label">Your Industries</div>
+                <div id="player-mat"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Overlay -->
+    <div id="modal-overlay" class="hidden">
+        <div id="modal-content">
+            <div id="modal-header">
+                <h3 id="modal-title"></h3>
+                <button id="modal-close">&times;</button>
+            </div>
+            <div id="modal-body"></div>
+            <div id="modal-footer"></div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container"></div>
+
+    <!-- Scoring Overlay -->
+    <div id="scoring-overlay" class="hidden">
+        <div class="scoring-content">
+            <h2 id="scoring-title">Era Scoring</h2>
+            <div id="scoring-details"></div>
+            <button id="scoring-continue-btn" class="btn-primary">Continue</button>
+        </div>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="gameover-overlay" class="hidden">
+        <div class="gameover-content">
+            <h1>Game Over</h1>
+            <div id="final-scores"></div>
+            <button id="new-game-btn" class="btn-primary">New Game</button>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/gameData.js"></script>
+    <script src="js/gameState.js"></script>
+    <script src="js/gameLogic.js"></script>
+    <script src="js/boardRenderer.js"></script>
+    <script src="js/uiManager.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
