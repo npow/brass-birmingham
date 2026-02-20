@@ -59,6 +59,28 @@
             </div>
         </div>
 
+        <!-- Action Phase Indicator Bar -->
+        <div id="action-phase-bar" class="hidden">
+            <div class="phase-steps">
+                <div class="phase-step" data-step="1">
+                    <span class="phase-step-num">1</span>
+                    <span class="phase-step-label">Choose Action</span>
+                </div>
+                <div class="phase-step-arrow">&#9654;</div>
+                <div class="phase-step" data-step="2">
+                    <span class="phase-step-num">2</span>
+                    <span class="phase-step-label">Select Target</span>
+                </div>
+                <div class="phase-step-arrow">&#9654;</div>
+                <div class="phase-step" data-step="3">
+                    <span class="phase-step-num">3</span>
+                    <span class="phase-step-label">Discard Card</span>
+                </div>
+            </div>
+            <div class="phase-instruction" id="phase-instruction">Select an action to begin</div>
+            <button class="phase-cancel-btn" id="phase-cancel-btn">Cancel</button>
+        </div>
+
         <!-- Main Game Area -->
         <div id="game-area">
             <!-- Board -->
@@ -77,13 +99,25 @@
                 <div id="markets-panel">
                     <h3>Markets</h3>
                     <div id="coal-market" class="market">
-                        <div class="market-label">Coal</div>
+                        <div class="market-header">
+                            <div class="market-label">Coal</div>
+                            <div class="market-current-price" id="coal-current-price"></div>
+                        </div>
                         <div class="market-track" id="coal-track"></div>
                     </div>
                     <div id="iron-market" class="market">
-                        <div class="market-label">Iron</div>
+                        <div class="market-header">
+                            <div class="market-label">Iron</div>
+                            <div class="market-current-price" id="iron-current-price"></div>
+                        </div>
                         <div class="market-track" id="iron-track"></div>
                     </div>
+                </div>
+
+                <!-- Game Log -->
+                <div id="game-log-panel">
+                    <h3>Game Log</h3>
+                    <div id="game-log"></div>
                 </div>
             </div>
         </div>
@@ -165,6 +199,14 @@
             <h1>Game Over</h1>
             <div id="final-scores"></div>
             <button id="new-game-btn" class="btn-primary">New Game</button>
+        </div>
+    </div>
+
+    <!-- Turn Transition Overlay -->
+    <div id="turn-transition" class="hidden">
+        <div class="turn-transition-content">
+            <div class="turn-transition-name" id="turn-transition-name"></div>
+            <div class="turn-transition-subtitle">Your Turn</div>
         </div>
     </div>
 

@@ -645,6 +645,50 @@ class GameLogic {
     }
 
     // ========================================================================
+    // Disabled Reason for Action Buttons
+    // ========================================================================
+
+    getDisabledReason(action, playerId) {
+        const player = this.state.players[playerId];
+        if (player.hand.length === 0) return 'Hand is empty';
+
+        switch (action) {
+            case ACTIONS.BUILD:
+                if (this.getValidBuildTargets(playerId).length === 0) {
+                    return 'No valid build locations';
+                }
+                return null;
+            case ACTIONS.NETWORK: {
+                const era = this.state.era;
+                if (era === ERA.CANAL && player.linksRemaining.canal <= 0) return 'No canal links remaining';
+                if (era === ERA.RAIL && player.linksRemaining.rail <= 0) return 'No rail links remaining';
+                if (this.getValidNetworkTargets(playerId).length === 0) return 'No valid connections available';
+                return null;
+            }
+            case ACTIONS.DEVELOP: {
+                const ironSources = this.state.findIronSource(playerId);
+                if (ironSources.length === 0) return 'No iron available';
+                if (!this.canDevelop(playerId)) return 'No developable tiles on your mat';
+                return null;
+            }
+            case ACTIONS.SELL:
+                if (this.getValidSellTargets(playerId).length === 0) return 'No industries ready to sell';
+                return null;
+            case ACTIONS.LOAN:
+                return null;
+            case ACTIONS.SCOUT:
+                if (player.hand.length < 3) return 'Need at least 3 cards';
+                if (player.hasWildLocation || player.hasWildIndustry) return 'Already have wild cards';
+                if (this.state.wildLocationPile <= 0 || this.state.wildIndustryPile <= 0) return 'No wild cards available';
+                return null;
+            case ACTIONS.PASS:
+                return null;
+            default:
+                return 'Unknown action';
+        }
+    }
+
+    // ========================================================================
     // Card Management
     // ========================================================================
 

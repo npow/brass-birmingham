@@ -1,6 +1,17 @@
 // ============================================================================
 // Brass: Birmingham - UI Manager
+// Enhanced with phase bar, game log, turn transitions, card selection mode
 // ============================================================================
+
+// SVG icon paths for card display
+const CARD_SVG_ICONS = {
+    [INDUSTRY_TYPES.COTTON_MILL]: '<svg viewBox="-15 -15 30 30" class="card-svg-icon"><path d="M-10,10 L-10,-4 L-6,-4 L-6,-8 L-2,-8 L-2,-12 L2,-12 L2,-8 L10,-8 L10,10 Z" fill="#b8a68e" stroke="#8a7a68" stroke-width="1"/></svg>',
+    [INDUSTRY_TYPES.COAL_MINE]: '<svg viewBox="-15 -15 30 30" class="card-svg-icon"><polygon points="0,-12 10,0 0,12 -10,0" fill="#555" stroke="#888" stroke-width="1"/></svg>',
+    [INDUSTRY_TYPES.IRON_WORKS]: '<svg viewBox="-15 -15 30 30" class="card-svg-icon"><polygon points="0,-10 5,-8.7 8.7,-5 10,0 8.7,5 5,8.7 0,10 -5,8.7 -8.7,5 -10,0 -8.7,-5 -5,-8.7" fill="#d4760a" stroke="#a05808" stroke-width="1"/><circle cx="0" cy="0" r="3" fill="#2d2519"/></svg>',
+    [INDUSTRY_TYPES.MANUFACTURER]: '<svg viewBox="-15 -15 30 30" class="card-svg-icon"><rect x="-8" y="-6" width="16" height="12" rx="1" fill="#8b6914" stroke="#6a5010" stroke-width="1"/><line x1="-8" y1="0" x2="8" y2="0" stroke="#6a5010" stroke-width="0.8"/><line x1="0" y1="-6" x2="0" y2="6" stroke="#6a5010" stroke-width="0.8"/></svg>',
+    [INDUSTRY_TYPES.POTTERY]: '<svg viewBox="-15 -15 30 30" class="card-svg-icon"><path d="M-3,-10 L3,-10 L4,-6 L8,2 L6,10 L-6,10 L-8,2 L-4,-6 Z" fill="#b03a2e" stroke="#8a2a20" stroke-width="1"/></svg>',
+    [INDUSTRY_TYPES.BREWERY]: '<svg viewBox="-15 -15 30 30" class="card-svg-icon"><ellipse cx="0" cy="0" rx="8" ry="10" fill="#d4a017" stroke="#a08010" stroke-width="1"/><line x1="-7" y1="-3" x2="7" y2="-3" stroke="#a08010" stroke-width="0.8"/><line x1="-7" y1="3" x2="7" y2="3" stroke="#a08010" stroke-width="0.8"/></svg>',
+};
 
 class UIManager {
     constructor() {
@@ -11,6 +22,8 @@ class UIManager {
         this.selectedCard = null;
         this.actionStep = 0; // Multi-step action tracking
         this.pendingData = {}; // Data accumulated during multi-step actions
+        this.gameLog = []; // Game log entries
+        this.previousPlayerId = null; // Track player changes for transitions
     }
 
     init(gameState, gameLogic, boardRenderer) {
@@ -19,6 +32,9 @@ class UIManager {
         this.renderer = boardRenderer;
 
         this.bindEvents();
+        this.addLogEntry(null, `Game started with ${this.state.numPlayers} players`, 'system');
+        this.addLogEntry(null, `Canal Era`, 'era');
+        this.previousPlayerId = this.state.currentPlayerId;
         this.refresh();
     }
 
@@ -42,6 +58,20 @@ class UIManager {
         document.getElementById('game-board').addEventListener('click', (e) => {
             this.onBoardClick(e);
         });
+
+        // Phase bar cancel button
+        document.getElementById('phase-cancel-btn').addEventListener('click', () => {
+            this.cancelAction();
+        });
+
+        // Escape key to cancel action
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (this.selectedAction) {
+                    this.cancelAction();
+                }
+            }
+        });
     }
 
     // ========================================================================
@@ -55,6 +85,7 @@ class UIManager {
         this.updateActionButtons();
         this.updatePlayerMat();
         this.updateMarkets();
+        this.updatePhaseBar();
         this.renderer.fullUpdate(this.state);
     }
 
@@ -88,11 +119,15 @@ class UIManager {
         container.innerHTML = '';
 
         for (const player of this.state.players) {
+            const isActive = player.id === this.state.currentPlayerId;
             const panel = document.createElement('div');
-            panel.className = `player-panel${player.id === this.state.currentPlayerId ? ' active' : ''}`;
+            panel.className = `player-panel${isActive ? ' active' : ''}`;
+
+            // Color-themed header stripe
+            const headerBg = isActive ? `border-left: 3px solid ${player.color}` : `border-left: 3px solid transparent`;
 
             panel.innerHTML = `
-                <div class="player-panel-header">
+                <div class="player-panel-header" style="${headerBg}; padding-left: 6px;">
                     <span class="player-panel-name" style="color: ${player.color}">${player.name}</span>
                     <span class="player-panel-vp">${player.vp} VP</span>
                 </div>
@@ -114,6 +149,15 @@ class UIManager {
         container.innerHTML = '';
 
         const player = this.state.currentPlayer;
+        const playerId = this.state.currentPlayerId;
+        const inCardSelectMode = this.actionStep > 0 && this.selectedAction;
+
+        // Get valid card indices for current action
+        let validCardIndices = null;
+        if (inCardSelectMode) {
+            const target = this.selectedAction === ACTIONS.BUILD ? this.pendingData : null;
+            validCardIndices = this.logic.getValidCardsForAction(playerId, this.selectedAction, target);
+        }
 
         player.hand.forEach((card, idx) => {
             const cardEl = document.createElement('div');
@@ -124,33 +168,33 @@ class UIManager {
                 cardEl.classList.add('location-card');
                 const city = CITIES[card.location];
                 const regionColor = city ? REGION_COLORS[city.region]?.fill : '#4a4a4a';
-                cardEl.style.borderTopColor = regionColor;
 
                 cardEl.innerHTML = `
                     <div class="card-type">Location</div>
-                    <div class="card-icon">📍</div>
+                    ${CARD_SVG_ICONS[INDUSTRY_TYPES.COTTON_MILL] ? '<div style="font-size:20px;margin:4px 0;">📍</div>' : ''}
                     <div class="card-name">${card.name}</div>
                 `;
             } else if (card.type === CARD_TYPES.INDUSTRY) {
                 cardEl.classList.add('industry-card');
                 const display = INDUSTRY_DISPLAY[card.industryType];
+                const svgIcon = CARD_SVG_ICONS[card.industryType] || '';
                 cardEl.innerHTML = `
                     <div class="card-type">Industry</div>
-                    <div class="card-icon">${display.icon}</div>
+                    ${svgIcon || `<div class="card-icon">${display.icon}</div>`}
                     <div class="card-name">${display.name}</div>
                 `;
             } else if (card.type === CARD_TYPES.WILD_LOCATION) {
                 cardEl.classList.add('wild-card');
                 cardEl.innerHTML = `
                     <div class="card-type">Wild</div>
-                    <div class="card-icon">🌟</div>
+                    <div class="card-icon">&#10038;</div>
                     <div class="card-name">Location</div>
                 `;
             } else if (card.type === CARD_TYPES.WILD_INDUSTRY) {
                 cardEl.classList.add('wild-card');
                 cardEl.innerHTML = `
                     <div class="card-type">Wild</div>
-                    <div class="card-icon">⭐</div>
+                    <div class="card-icon">&#10040;</div>
                     <div class="card-name">Industry</div>
                 `;
             }
@@ -159,15 +203,26 @@ class UIManager {
                 cardEl.classList.add('selected');
             }
 
-            // Highlight valid cards when waiting for card selection
-            if (this.actionStep > 0 && this.selectedAction) {
-                cardEl.style.boxShadow = '0 0 8px rgba(201,168,76,0.5)';
-                cardEl.style.cursor = 'pointer';
+            // Card selection mode visual states
+            if (inCardSelectMode && validCardIndices) {
+                if (validCardIndices.includes(idx)) {
+                    cardEl.classList.add('valid-discard');
+                } else {
+                    cardEl.classList.add('invalid-discard');
+                }
             }
 
             cardEl.addEventListener('click', () => this.onCardClicked(idx));
             container.appendChild(cardEl);
         });
+
+        // Toggle card-select-mode class on bottom panel
+        const bottomPanel = document.getElementById('bottom-panel');
+        if (inCardSelectMode) {
+            bottomPanel.classList.add('card-select-mode');
+        } else {
+            bottomPanel.classList.remove('card-select-mode');
+        }
     }
 
     updateActionButtons() {
@@ -178,6 +233,24 @@ class UIManager {
             const canDo = this.logic.canPerformAction(action, playerId);
             btn.disabled = !canDo;
             btn.classList.toggle('active', this.selectedAction === action);
+
+            // Disabled tooltips
+            if (!canDo) {
+                const reason = this.logic.getDisabledReason(action, playerId);
+                btn.title = reason || 'Cannot perform this action';
+            } else {
+                // Restore default tooltips
+                const defaultTitles = {
+                    build: 'Build an industry tile',
+                    network: 'Build a canal or rail link',
+                    develop: 'Remove lower-level tiles',
+                    sell: 'Sell cotton, goods, or pottery',
+                    loan: 'Take a £30 loan',
+                    scout: 'Trade 3 cards for 2 wild cards',
+                    pass: 'Pass (discard a card)',
+                };
+                btn.title = defaultTitles[action] || '';
+            }
         });
     }
 
@@ -196,7 +269,7 @@ class UIManager {
             const allTiles = this.state.currentPlayer.industryTiles[type];
             allTiles.forEach(tile => {
                 const cls = tile.used ? 'mat-tile used' : 'mat-tile available';
-                tilesHtml += `<div class="${cls}" title="${display.name} Lv${tile.level} - Cost: £${tile.cost}">${tile.level}</div>`;
+                tilesHtml += `<div class="${cls}" data-type="${type}" title="${display.name} Lv${tile.level} - Cost: £${tile.cost}">${tile.level}</div>`;
             });
 
             div.innerHTML = `
@@ -211,6 +284,10 @@ class UIManager {
         // Coal market
         const coalTrack = document.getElementById('coal-track');
         coalTrack.innerHTML = '';
+        const coalPrice = this.state.getCoalPrice();
+        document.getElementById('coal-current-price').textContent =
+            coalPrice === Infinity ? 'Empty' : `Price: £${coalPrice}`;
+
         for (let i = 0; i < COAL_MARKET_PRICES.length; i++) {
             const filled = i >= (COAL_MARKET_PRICES.length - this.state.coalMarket);
             const space = document.createElement('div');
@@ -223,6 +300,10 @@ class UIManager {
         // Iron market
         const ironTrack = document.getElementById('iron-track');
         ironTrack.innerHTML = '';
+        const ironPrice = this.state.getIronPrice();
+        document.getElementById('iron-current-price').textContent =
+            ironPrice === Infinity ? 'Empty' : `Price: £${ironPrice}`;
+
         for (let i = 0; i < IRON_MARKET_PRICES.length; i++) {
             const filled = i >= (IRON_MARKET_PRICES.length - this.state.ironMarket);
             const space = document.createElement('div');
@@ -231,6 +312,134 @@ class UIManager {
             if (!filled) space.textContent = IRON_MARKET_PRICES[i];
             ironTrack.appendChild(space);
         }
+    }
+
+    // ========================================================================
+    // Phase Bar
+    // ========================================================================
+
+    updatePhaseBar() {
+        const bar = document.getElementById('action-phase-bar');
+        const steps = bar.querySelectorAll('.phase-step');
+        const instruction = document.getElementById('phase-instruction');
+
+        if (!this.selectedAction) {
+            bar.classList.add('hidden');
+            return;
+        }
+
+        bar.classList.remove('hidden');
+
+        // Determine which step we're on
+        let currentStep = 1; // Choose Action
+        let instructionText = 'Select an action';
+
+        if (this.selectedAction && this.actionStep === 0) {
+            currentStep = 2; // Select Target
+            instructionText = this.getTargetInstruction();
+        } else if (this.actionStep > 0) {
+            currentStep = 3; // Discard Card
+            if (this.selectedAction === ACTIONS.SCOUT) {
+                const remaining = 3 - (this.pendingData.scoutCards?.length || 0);
+                instructionText = `Select ${remaining} card${remaining !== 1 ? 's' : ''} to discard`;
+            } else {
+                instructionText = 'Click a card to discard';
+            }
+        }
+
+        steps.forEach(step => {
+            const stepNum = parseInt(step.dataset.step);
+            step.classList.remove('active', 'completed');
+            if (stepNum < currentStep) {
+                step.classList.add('completed');
+            } else if (stepNum === currentStep) {
+                step.classList.add('active');
+            }
+        });
+
+        instruction.textContent = instructionText;
+    }
+
+    getTargetInstruction() {
+        switch (this.selectedAction) {
+            case ACTIONS.BUILD: return 'Select what to build from the list';
+            case ACTIONS.NETWORK: return 'Select a connection to build';
+            case ACTIONS.DEVELOP: return 'Select a tile to develop';
+            case ACTIONS.SELL: return 'Select industries to sell';
+            case ACTIONS.LOAN: return 'Select a card to discard for £30 loan';
+            case ACTIONS.SCOUT: return 'Select 3 cards to discard';
+            case ACTIONS.PASS: return 'Select a card to discard';
+            default: return '';
+        }
+    }
+
+    // ========================================================================
+    // Game Log
+    // ========================================================================
+
+    addLogEntry(playerId, message, type = 'action') {
+        const entry = {
+            playerId,
+            message,
+            type,
+            timestamp: Date.now(),
+        };
+
+        this.gameLog.unshift(entry); // Newest first
+        if (this.gameLog.length > 100) this.gameLog.pop();
+        this.renderLog();
+    }
+
+    renderLog() {
+        const container = document.getElementById('game-log');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        for (const entry of this.gameLog) {
+            const div = document.createElement('div');
+            div.className = 'log-entry';
+
+            if (entry.type === 'system') {
+                div.classList.add('log-system');
+                div.textContent = entry.message;
+            } else if (entry.type === 'era') {
+                div.classList.add('log-era');
+                div.textContent = entry.message;
+            } else {
+                const player = entry.playerId !== null ? this.state.players[entry.playerId] : null;
+                if (player) {
+                    div.innerHTML = `<span class="log-player" style="color:${player.color}">${player.name}</span> ${entry.message}`;
+                } else {
+                    div.textContent = entry.message;
+                }
+            }
+
+            container.appendChild(div);
+        }
+    }
+
+    // ========================================================================
+    // Turn Transition
+    // ========================================================================
+
+    showTurnTransition(player) {
+        const overlay = document.getElementById('turn-transition');
+        const nameEl = document.getElementById('turn-transition-name');
+
+        nameEl.textContent = player.name;
+        nameEl.style.color = player.color;
+
+        overlay.classList.remove('hidden', 'fade-out');
+
+        // Auto-dismiss after 1.5s
+        setTimeout(() => {
+            overlay.classList.add('fade-out');
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+                overlay.classList.remove('fade-out');
+            }, 500);
+        }, 1000);
     }
 
     // ========================================================================
@@ -267,6 +476,7 @@ class UIManager {
         this.selectedCard = null;
 
         this.updateActionButtons();
+        this.updatePhaseBar();
         this.startAction(action);
     }
 
@@ -278,6 +488,7 @@ class UIManager {
         this.renderer.clearHighlights();
         this.updateActionButtons();
         this.updateHand();
+        this.updatePhaseBar();
         this.closeModal();
     }
 
@@ -325,12 +536,10 @@ class UIManager {
             return;
         }
 
-        // Show modal to select what to build
         this.showBuildModal(playerId, targets);
     }
 
     showBuildModal(playerId, targets) {
-        // Group targets by city
         const byCity = {};
         for (const t of targets) {
             if (!byCity[t.cityId]) byCity[t.cityId] = [];
@@ -362,7 +571,6 @@ class UIManager {
 
         this.showModal('Build Industry', html, () => {});
 
-        // Bind click events
         document.querySelectorAll('#modal-body .choice-item').forEach(item => {
             item.addEventListener('click', () => {
                 const cityId = item.dataset.city;
@@ -370,8 +578,9 @@ class UIManager {
                 const indType = item.dataset.type;
                 this.pendingData = { cityId, slotIndex, industryType: indType };
                 this.closeModal();
-                this.showToast('Select a card to discard', 'info');
-                this.actionStep = 1; // Wait for card selection
+                this.actionStep = 1;
+                this.updatePhaseBar();
+                this.updateHand();
             });
         });
     }
@@ -388,17 +597,15 @@ class UIManager {
             return;
         }
 
-        // Highlight valid connections on board
         this.renderer.highlightConnections(targets.map(t => t.connectionId));
 
-        // Show modal
         let html = '<div class="choice-list">';
         for (const target of targets) {
             const city1 = CITIES[target.cities[0]]?.name || MERCHANTS[target.cities[0]]?.name || target.cities[0];
             const city2 = CITIES[target.cities[1]]?.name || MERCHANTS[target.cities[1]]?.name || target.cities[1];
             html += `
                 <div class="choice-item" data-conn="${target.connectionId}">
-                    <div class="choice-item-icon">${target.type === 'canal' ? '⛵' : '🚂'}</div>
+                    <div class="choice-item-icon">${target.type === 'canal' ? '~' : '#'}</div>
                     <div class="choice-item-text">
                         <div class="choice-item-name">${city1} — ${city2}</div>
                         <div class="choice-item-detail">${target.type}</div>
@@ -415,8 +622,9 @@ class UIManager {
             item.addEventListener('click', () => {
                 this.pendingData = { connectionId: item.dataset.conn };
                 this.closeModal();
-                this.showToast('Select a card to discard', 'info');
                 this.actionStep = 1;
+                this.updatePhaseBar();
+                this.updateHand();
             });
         });
     }
@@ -455,8 +663,6 @@ class UIManager {
             item.addEventListener('click', () => {
                 const type1 = item.dataset.type;
                 this.pendingData.industryType1 = type1;
-
-                // Ask if they want to develop a second tile
                 this.showDevelopSecondChoice(playerId, type1);
             });
         });
@@ -464,26 +670,22 @@ class UIManager {
 
     showDevelopSecondChoice(playerId, firstType) {
         const types = this.logic.getDevelopableTypes(playerId);
-        // Filter: the first tile is now "pending removal", so get what's next
-        // For simplicity, show all developable types again
         const remainingTypes = types.filter(t => {
-            // If it's the same type as first, check if there are more tiles
             if (t.type === firstType) {
                 const remaining = this.state.getRemainingTiles(playerId);
-                return remaining[t.type].count > 1; // Need at least 2
+                return remaining[t.type].count > 1;
             }
             return true;
         });
 
-        // Check if player can afford iron for 2 tiles
         const ironSources = this.state.findIronSource(playerId);
         const canAffordTwo = ironSources.length >= 2;
 
         if (!canAffordTwo || remainingTypes.length === 0) {
-            // Just develop one tile
             this.closeModal();
-            this.showToast('Select a card to discard', 'info');
             this.actionStep = 1;
+            this.updatePhaseBar();
+            this.updateHand();
             return;
         }
 
@@ -511,8 +713,9 @@ class UIManager {
                 const type2 = item.dataset.type;
                 this.pendingData.industryType2 = type2 === 'none' ? null : type2;
                 this.closeModal();
-                this.showToast('Select a card to discard', 'info');
                 this.actionStep = 1;
+                this.updatePhaseBar();
+                this.updateHand();
             });
         });
     }
@@ -550,7 +753,6 @@ class UIManager {
         const footer = '<button class="modal-btn modal-btn-primary" id="confirm-sell">Sell Selected</button>';
         this.showModal('Sell Goods', html, null, footer);
 
-        // Toggle selection
         const selectedKeys = new Set();
         document.querySelectorAll('#modal-body .choice-item').forEach(item => {
             item.addEventListener('click', () => {
@@ -572,8 +774,9 @@ class UIManager {
             }
             this.pendingData.tileKeys = [...selectedKeys];
             this.closeModal();
-            this.showToast('Select a card to discard', 'info');
             this.actionStep = 1;
+            this.updatePhaseBar();
+            this.updateHand();
         });
     }
 
@@ -582,8 +785,9 @@ class UIManager {
     // ========================================================================
 
     startLoan(playerId) {
-        this.showToast(`Select a card to discard for £${LOAN_AMOUNT} loan`, 'info');
         this.actionStep = 1;
+        this.updatePhaseBar();
+        this.updateHand();
     }
 
     // ========================================================================
@@ -592,8 +796,9 @@ class UIManager {
 
     startScout(playerId) {
         this.pendingData.scoutCards = [];
-        this.showToast('Select 3 cards to discard for Scout', 'info');
         this.actionStep = 1;
+        this.updatePhaseBar();
+        this.updateHand();
     }
 
     // ========================================================================
@@ -601,8 +806,9 @@ class UIManager {
     // ========================================================================
 
     startPass(playerId) {
-        this.showToast('Select a card to discard', 'info');
         this.actionStep = 1;
+        this.updatePhaseBar();
+        this.updateHand();
     }
 
     // ========================================================================
@@ -624,6 +830,11 @@ class UIManager {
                     this.pendingData.industryType,
                     cardIndex
                 );
+                if (result.success) {
+                    const display = INDUSTRY_DISPLAY[this.pendingData.industryType];
+                    const cityName = CITIES[this.pendingData.cityId]?.name;
+                    this.addLogEntry(playerId, `built ${display.name} in ${cityName}`);
+                }
                 this.completeAction(result);
                 break;
             }
@@ -634,6 +845,9 @@ class UIManager {
                     this.pendingData.connectionId,
                     cardIndex
                 );
+                if (result.success) {
+                    this.addLogEntry(playerId, result.message.replace(/^Built /, 'built '));
+                }
                 this.completeAction(result);
                 break;
             }
@@ -645,6 +859,9 @@ class UIManager {
                     this.pendingData.industryType2,
                     cardIndex
                 );
+                if (result.success) {
+                    this.addLogEntry(playerId, result.message.toLowerCase());
+                }
                 this.completeAction(result);
                 break;
             }
@@ -655,27 +872,35 @@ class UIManager {
                     this.pendingData.tileKeys,
                     cardIndex
                 );
+                if (result.success) {
+                    this.addLogEntry(playerId, result.message.toLowerCase());
+                }
                 this.completeAction(result);
                 break;
             }
 
             case ACTIONS.LOAN: {
                 const result = this.logic.executeLoan(playerId, cardIndex);
+                if (result.success) {
+                    this.addLogEntry(playerId, `took £${LOAN_AMOUNT} loan`);
+                }
                 this.completeAction(result);
                 break;
             }
 
             case ACTIONS.SCOUT: {
-                // Accumulate 3 cards
                 if (!this.pendingData.scoutCards) this.pendingData.scoutCards = [];
                 this.pendingData.scoutCards.push(cardIndex);
 
                 if (this.pendingData.scoutCards.length >= 3) {
                     const result = this.logic.executeScout(playerId, this.pendingData.scoutCards);
+                    if (result.success) {
+                        this.addLogEntry(playerId, 'scouted (gained wild cards)');
+                    }
                     this.completeAction(result);
                 } else {
                     this.selectedCard = null;
-                    this.showToast(`Select ${3 - this.pendingData.scoutCards.length} more card(s)`, 'info');
+                    this.updatePhaseBar();
                     this.updateHand();
                 }
                 break;
@@ -683,6 +908,9 @@ class UIManager {
 
             case ACTIONS.PASS: {
                 const result = this.logic.executePass(playerId, cardIndex);
+                if (result.success) {
+                    this.addLogEntry(playerId, 'passed');
+                }
                 this.completeAction(result);
                 break;
             }
@@ -698,7 +926,9 @@ class UIManager {
             return;
         }
 
-        // Advance turn
+        const previousPlayerId = this.state.currentPlayerId;
+
+        // Reset action state
         this.selectedAction = null;
         this.actionStep = 0;
         this.pendingData = {};
@@ -708,11 +938,21 @@ class UIManager {
         const turnResult = this.state.advanceTurn();
 
         if (turnResult === 'endCanalEra') {
+            this.addLogEntry(null, 'Canal Era Scoring', 'era');
             const scores = this.state.endCanalEra();
+            this.addLogEntry(null, 'Rail Era', 'era');
             this.showScoring('Canal Era Complete', scores);
         } else if (turnResult === 'endGame') {
+            this.addLogEntry(null, 'Final Scoring', 'era');
             const scores = this.state.endGame();
             this.showGameOver(scores);
+        } else {
+            // Check if player changed - show transition
+            const newPlayerId = this.state.currentPlayerId;
+            if (newPlayerId !== previousPlayerId) {
+                this.addLogEntry(null, `${this.state.currentPlayer.name}'s turn`, 'system');
+                this.showTurnTransition(this.state.currentPlayer);
+            }
         }
 
         this.refresh();
@@ -726,13 +966,11 @@ class UIManager {
         const target = e.target.closest('.industry-slot, .connection-line, .brewery-farm, .merchant-group');
         if (!target) return;
 
-        // Handle click based on current action
         if (this.selectedAction === ACTIONS.BUILD) {
             const slot = target.closest('.industry-slot');
             if (slot) {
                 const cityId = slot.dataset.city;
                 const slotIndex = parseInt(slot.dataset.slot);
-                // If this is a valid target, select it
                 // TODO: Direct board-click build selection
             }
         }
@@ -743,8 +981,10 @@ class UIManager {
                 const connId = line.dataset.connection;
                 this.pendingData = { connectionId: connId };
                 this.renderer.clearHighlights();
-                this.showToast('Select a card to discard', 'info');
+                this.closeModal();
                 this.actionStep = 1;
+                this.updatePhaseBar();
+                this.updateHand();
             }
         }
     }
@@ -815,7 +1055,6 @@ class UIManager {
     showGameOver(scores) {
         const overlay = document.getElementById('gameover-overlay');
 
-        // Sort by VP
         const sorted = [...this.state.players].sort((a, b) => b.vp - a.vp);
 
         let html = '<table class="scoring-table"><thead><tr><th>Rank</th><th>Player</th><th>VP</th><th>Income</th><th>Money</th></tr></thead><tbody>';

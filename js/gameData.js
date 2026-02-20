@@ -40,9 +40,9 @@ const CARD_TYPES = {
 };
 
 // Player colors matching the physical game
-const PLAYER_COLORS = ['#c0392b', '#f39c12', '#8e44ad', '#ecf0f1'];
+const PLAYER_COLORS = ['#c0392b', '#f39c12', '#8e44ad', '#d9d0c2'];
 const PLAYER_NAMES = ['Red', 'Yellow', 'Purple', 'White'];
-const PLAYER_BG_COLORS = ['#922b21', '#b7770d', '#6c3483', '#bdc3c7'];
+const PLAYER_BG_COLORS = ['#922b21', '#b7770d', '#6c3483', '#b8b0a2'];
 
 // ============================================================================
 // Industry Tile Data (from TTS Brass Birmingham implementation)

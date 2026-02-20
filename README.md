@@ -51,6 +51,32 @@ Select what to build, where, and for how much — all costs including coal and i
 
 ---
 
+### Clear Action Workflow
+
+A persistent **action phase bar** guides you through each turn:
+
+1. **Choose Action** — Pick from Build, Network, Develop, Sell, Loan, Scout, or Pass
+2. **Select Target** — Choose what/where to build, which connection, etc.
+3. **Discard Card** — Valid cards glow gold; invalid cards are dimmed
+
+The phase bar shows your current step, contextual instructions, and a cancel button. Press **Escape** at any time to abort.
+
+When waiting for card selection, action buttons and your player mat dim to focus attention on your hand. Only valid discard options are clickable.
+
+---
+
+### Game Log & Turn Transitions
+
+A **scrollable game log** in the right panel records every action: builds, network links, sales, loans, and more — color-coded by player. No more relying on fleeting toast notifications.
+
+Between turns, a **brief animated overlay** shows the next player's name in their color, giving a clear visual break.
+
+![Players panel and game log](screenshots/player_markets.png)
+
+<p align="center"><em>Right panel — player stats, markets with current prices, and the game log</em></p>
+
+---
+
 ### Develop to Unlock Higher Tiers
 
 Spend iron to remove low-level tiles from your player mat and access the powerful high-level industries underneath. Optionally develop two tiles at once.
@@ -65,9 +91,23 @@ Spend iron to remove low-level tiles from your player mat and access the powerfu
 
 Play location cards to build anywhere on the map, or industry cards to build within your network. Manage your hand carefully — every action costs a card.
 
+Cards show **inline SVG icons** matching each industry type, with colored top borders indicating card type (green for location, red for industry, gold gradient for wild).
+
 ![Hand, actions, and industry mat](screenshots/hand_actions.png)
 
 <p align="center"><em>Bottom panel — your hand of cards, the seven available actions, and your remaining industry tiles</em></p>
+
+---
+
+### Atmospheric Board
+
+The game board features:
+- **Parchment texture** via SVG noise filters and a radial vignette
+- **Double-line canal** connections (translucent blue water effect)
+- **Rail connections** with track-tie patterns
+- **Geometric SVG icons** on industry slots and built tiles (factory, diamond, gear, crate, vase, barrel)
+- **City nodes** with dark label backdrops, inner shadow depth, and increased region color opacity
+- **VP badges** on flipped tiles, player color strips on built tiles
 
 ---
 
@@ -99,8 +139,11 @@ Open [http://localhost:8080](http://localhost:8080) in your browser. No build st
 ### On Your Turn
 
 1. **Select an action** from the action panel (Build, Network, Develop, Sell, Loan, Scout, or Pass)
-2. **Choose your target** from the list that appears
-3. **Click a card** in your hand to discard
+2. **Follow the phase bar** — it shows your current step and what to do next
+3. **Choose your target** from the modal or board
+4. **Click a valid card** (highlighted with a gold pulse) to discard
+
+Disabled action buttons show **tooltips explaining why** they can't be used (e.g. "No iron available", "Need at least 3 cards").
 
 The game handles all resource sourcing (coal, iron, beer), market pricing, turn order, and scoring automatically.
 
@@ -124,6 +167,23 @@ This implementation follows the official Brass: Birmingham rulebook:
 - **Overbuilding** your own tiles requires same type + higher level; opponent coal/iron tiles can only be overbuilt when that resource is globally depleted
 - **Pottery I and III** have the lightbulb icon and cannot be developed — they must be built
 - **Turn order** each round goes to whoever spent the least money
+
+---
+
+## Architecture
+
+Pure HTML/CSS/JS — no build tools, no frameworks, no external images.
+
+| File | Purpose |
+|------|---------|
+| `index.html` | Layout: setup screen, game screen with phase bar, game log, overlays |
+| `css/style.css` | Dark Victorian theme with CSS animations, card-select mode, transitions |
+| `js/gameData.js` | All constants: tiles, cities, connections, cards, merchants, markets |
+| `js/gameState.js` | Game state, market mechanics, network pathfinding, turn management |
+| `js/gameLogic.js` | All 7 actions + `getDisabledReason()` for tooltip feedback |
+| `js/boardRenderer.js` | SVG board with texture filters, styled connections, geometric icons |
+| `js/uiManager.js` | Phase bar, card selection mode, game log, turn transitions, modals |
+| `js/main.js` | Entry point, setup screen |
 
 ---
 
