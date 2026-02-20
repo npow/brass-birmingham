@@ -555,7 +555,8 @@ class GameLogic {
                                     this.state.adjustIncome(playerId, merchData.bonusAmount);
                                     break;
                                 case 'develop':
-                                    // Free develop - TODO: implement
+                                    // Free develop: remove lowest tile from player mat (no iron cost)
+                                    this.applyFreeDevelop(playerId, merchData.bonusAmount);
                                     break;
                             }
                         }
@@ -642,6 +643,21 @@ class GameLogic {
     executePass(playerId, cardIndex) {
         this.discardCard(playerId, cardIndex);
         return { success: true, message: 'Passed' };
+    }
+
+    // ========================================================================
+    // Free Develop (merchant bonus)
+    // ========================================================================
+
+    applyFreeDevelop(playerId, count) {
+        for (let i = 0; i < count; i++) {
+            // Find the lowest-level developable tile on the player's mat
+            const types = this.getDevelopableTypes(playerId);
+            if (types.length === 0) break;
+            // Pick the lowest level tile
+            types.sort((a, b) => a.level - b.level);
+            this.state.developTile(playerId, types[0].type);
+        }
     }
 
     // ========================================================================

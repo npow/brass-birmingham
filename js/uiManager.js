@@ -536,6 +536,12 @@ class UIManager {
             return;
         }
 
+        // Store targets for board-click selection
+        this.pendingData.buildTargets = targets;
+
+        // Highlight valid slots on the board
+        this.renderer.highlightSlots(targets);
+
         this.showBuildModal(playerId, targets);
     }
 
@@ -578,6 +584,7 @@ class UIManager {
                 const indType = item.dataset.type;
                 this.pendingData = { cityId, slotIndex, industryType: indType };
                 this.closeModal();
+                this.renderer.clearHighlights();
                 this.actionStep = 1;
                 this.updatePhaseBar();
                 this.updateHand();
@@ -966,12 +973,27 @@ class UIManager {
         const target = e.target.closest('.industry-slot, .connection-line, .brewery-farm, .merchant-group');
         if (!target) return;
 
-        if (this.selectedAction === ACTIONS.BUILD) {
+        if (this.selectedAction === ACTIONS.BUILD && this.actionStep === 0) {
             const slot = target.closest('.industry-slot');
-            if (slot) {
+            if (slot && slot.classList.contains('highlight-slot')) {
                 const cityId = slot.dataset.city;
                 const slotIndex = parseInt(slot.dataset.slot);
-                // TODO: Direct board-click build selection
+                const targets = (this.pendingData.buildTargets || []).filter(
+                    t => t.cityId === cityId && t.slotIndex === slotIndex
+                );
+                if (targets.length === 1) {
+                    // Single option for this slot — select it directly
+                    this.pendingData = { cityId, slotIndex, industryType: targets[0].industryType };
+                    this.closeModal();
+                    this.renderer.clearHighlights();
+                    this.actionStep = 1;
+                    this.updatePhaseBar();
+                    this.updateHand();
+                } else if (targets.length > 1) {
+                    // Multiple types for this slot — show filtered modal
+                    this.closeModal();
+                    this.showBuildModal(this.state.currentPlayerId, targets);
+                }
             }
         }
 
