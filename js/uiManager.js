@@ -122,21 +122,20 @@ class UIManager {
             const isActive = player.id === this.state.currentPlayerId;
             const panel = document.createElement('div');
             panel.className = `player-panel${isActive ? ' active' : ''}`;
-
-            // Color-themed header stripe
-            const headerBg = isActive ? `border-left: 3px solid ${player.color}` : `border-left: 3px solid transparent`;
+            // Set the left border color via the panel itself (CSS uses border-left)
+            panel.style.borderLeftColor = player.color;
 
             panel.innerHTML = `
-                <div class="player-panel-header" style="${headerBg}; padding-left: 6px;">
+                <div class="player-panel-header">
                     <span class="player-panel-name" style="color: ${player.color}">${player.name}</span>
-                    <span class="player-panel-vp">${player.vp} VP</span>
+                    <span class="player-panel-vp">${player.vp} <span style="font-size:10px;font-weight:400;color:var(--text-muted)">VP</span></span>
                 </div>
                 <div class="player-panel-stats">
-                    <span class="player-panel-stat" title="Money">£${player.money}</span>
-                    <span class="player-panel-stat" title="Income">Inc: ${player.income}</span>
-                    <span class="player-panel-stat" title="Cards">${player.hand.length} cards</span>
+                    <span class="player-panel-stat" title="Money" style="color:#c9a84c">£${player.money}</span>
+                    <span class="player-panel-stat" title="Income">&#8679; ${player.income}</span>
+                    <span class="player-panel-stat" title="Cards">${player.hand.length} cds</span>
                     <span class="player-panel-stat" title="Links">
-                        ${this.state.era === ERA.CANAL ? player.linksRemaining.canal : player.linksRemaining.rail} links
+                        ${this.state.era === ERA.CANAL ? player.linksRemaining.canal : player.linksRemaining.rail} lnk
                     </span>
                 </div>
             `;

@@ -235,18 +235,37 @@ class BoardRenderer {
         }));
         defs.appendChild(innerShadow);
 
-        // Background gradient - richer aged paper tones
+        // Background gradient - warm sepia/parchment aged map tones
         const bgGrad = this.createElement('radialGradient', { id: 'boardBg', cx: '50%', cy: '45%', r: '70%' });
-        bgGrad.appendChild(this.createElement('stop', { offset: '0%', 'stop-color': '#42392a' }));
-        bgGrad.appendChild(this.createElement('stop', { offset: '60%', 'stop-color': '#33301f' }));
-        bgGrad.appendChild(this.createElement('stop', { offset: '100%', 'stop-color': '#22201a' }));
+        bgGrad.appendChild(this.createElement('stop', { offset: '0%', 'stop-color': '#4a3f2a' }));
+        bgGrad.appendChild(this.createElement('stop', { offset: '55%', 'stop-color': '#38321e' }));
+        bgGrad.appendChild(this.createElement('stop', { offset: '100%', 'stop-color': '#26220e' }));
         defs.appendChild(bgGrad);
 
-        // Region background patterns
+        // Flipped tile gradient (green-tinted for sold/depleted)
+        const tileFlipped = this.createElement('linearGradient', { id: 'tileFlippedBg', x1: '0%', y1: '0%', x2: '0%', y2: '100%' });
+        tileFlipped.appendChild(this.createElement('stop', { offset: '0%', 'stop-color': '#2a4a2a' }));
+        tileFlipped.appendChild(this.createElement('stop', { offset: '100%', 'stop-color': '#1a3a1a' }));
+        defs.appendChild(tileFlipped);
+
+        // Glow filter for built tiles
+        const glowFilter = this.createElement('filter', {
+            id: 'tileGlow', x: '-30%', y: '-30%', width: '160%', height: '160%',
+        });
+        glowFilter.appendChild(this.createElement('feGaussianBlur', {
+            in: 'SourceGraphic', stdDeviation: '2.5', result: 'coloredBlur',
+        }));
+        const glowMerge = this.createElement('feMerge');
+        glowMerge.appendChild(this.createElement('feMergeNode', { in: 'coloredBlur' }));
+        glowMerge.appendChild(this.createElement('feMergeNode', { in: 'SourceGraphic' }));
+        glowFilter.appendChild(glowMerge);
+        defs.appendChild(glowFilter);
+
+        // Region background patterns — richer contrast
         for (const [regionId, colors] of Object.entries(REGION_COLORS)) {
             const grad = this.createElement('radialGradient', { id: `region_${regionId}`, cx: '50%', cy: '50%', r: '60%' });
-            grad.appendChild(this.createElement('stop', { offset: '0%', 'stop-color': colors.fill, 'stop-opacity': '0.25' }));
-            grad.appendChild(this.createElement('stop', { offset: '100%', 'stop-color': colors.fill, 'stop-opacity': '0.08' }));
+            grad.appendChild(this.createElement('stop', { offset: '0%', 'stop-color': colors.fill, 'stop-opacity': '0.38' }));
+            grad.appendChild(this.createElement('stop', { offset: '100%', 'stop-color': colors.fill, 'stop-opacity': '0.12' }));
             defs.appendChild(grad);
         }
 
@@ -330,48 +349,59 @@ class BoardRenderer {
 
             for (const seg of segments) {
                 if (isCanal && era === ERA.CANAL) {
-                    // Canal: double-line blue water effect
-                    // Outer thick translucent line
+                    // Canal: vibrant blue water with glow
+                    // Outer thick translucent glow
                     connGroup.appendChild(this.createElement('line', {
                         ...seg,
-                        stroke: '#3070a0',
-                        'stroke-width': 6,
+                        stroke: '#4499cc',
+                        'stroke-width': 8,
                         'stroke-linecap': 'round',
-                        'stroke-opacity': '0.25',
+                        'stroke-opacity': '0.22',
                         'data-connection': conn.id,
                         class: 'connection-line',
+                    }));
+                    // Mid layer for contrast
+                    connGroup.appendChild(this.createElement('line', {
+                        ...seg,
+                        stroke: '#3388bb',
+                        'stroke-width': 4,
+                        'stroke-linecap': 'round',
+                        'stroke-opacity': '0.45',
+                        'data-connection': conn.id,
+                        class: 'connection-line',
+                        'pointer-events': 'none',
                     }));
                     // Inner bright center
                     connGroup.appendChild(this.createElement('line', {
                         ...seg,
-                        stroke: '#5599cc',
-                        'stroke-width': 2,
+                        stroke: '#66bbee',
+                        'stroke-width': 3,
                         'stroke-linecap': 'round',
-                        'stroke-opacity': '0.6',
+                        'stroke-opacity': '0.7',
                         'data-connection': conn.id,
                         class: 'connection-line',
                         'pointer-events': 'none',
                     }));
                 } else if (isRail && era === ERA.RAIL) {
-                    // Rail: parallel lines with tie marks
-                    // Main rail line
+                    // Rail: dark ballast bed with visible tie marks
+                    // Outer thick dark ballast
                     connGroup.appendChild(this.createElement('line', {
                         ...seg,
-                        stroke: '#777',
-                        'stroke-width': 4,
+                        stroke: '#555',
+                        'stroke-width': 5,
                         'stroke-linecap': 'round',
-                        'stroke-opacity': '0.3',
+                        'stroke-opacity': '0.55',
                         'data-connection': conn.id,
                         class: 'connection-line',
                     }));
-                    // Track pattern (ties)
+                    // Rail sleepers/ties — dotted dark line
                     connGroup.appendChild(this.createElement('line', {
                         ...seg,
-                        stroke: '#999',
+                        stroke: '#888',
                         'stroke-width': 2,
                         'stroke-linecap': 'butt',
-                        'stroke-dasharray': '2 6',
-                        'stroke-opacity': '0.5',
+                        'stroke-dasharray': '3 7',
+                        'stroke-opacity': '0.65',
                         'data-connection': conn.id,
                         class: 'connection-line',
                         'pointer-events': 'none',
@@ -398,6 +428,19 @@ class BoardRenderer {
     // Cities with enhanced styling
     // ========================================================================
 
+    // Returns a slot border color for a given industry type
+    getSlotBorderColor(type) {
+        const slotColors = {
+            [INDUSTRY_TYPES.COTTON_MILL]: '#b8c5a0',
+            [INDUSTRY_TYPES.COAL_MINE]: '#6a6a6a',
+            [INDUSTRY_TYPES.IRON_WORKS]: '#c87820',
+            [INDUSTRY_TYPES.MANUFACTURER]: '#9a7a30',
+            [INDUSTRY_TYPES.POTTERY]: '#b05040',
+            [INDUSTRY_TYPES.BREWERY]: '#c8a030',
+        };
+        return slotColors[type] || 'rgba(255,255,255,0.25)';
+    }
+
     drawCities() {
         const cityGroup = this.createGroup({ id: 'cities-layer' });
 
@@ -411,54 +454,74 @@ class BoardRenderer {
             // Calculate city dimensions
             const slotsPerRow = Math.min(city.slots.length, 4);
             const rows = Math.ceil(city.slots.length / slotsPerRow);
-            const cityWidth = slotsPerRow * (this.citySlotSize + 3) + this.cityPadding * 2;
-            const cityHeight = rows * (this.citySlotSize + 3) + 22 + this.cityPadding;
+            const cityWidth = slotsPerRow * (this.citySlotSize + 4) + this.cityPadding * 2;
+            const cityHeight = rows * (this.citySlotSize + 4) + 26 + this.cityPadding;
 
-            // Region background with increased opacity and shadow
             const regionColors = REGION_COLORS[city.region] || REGION_COLORS.birmingham;
+
+            // Outer glow ring — larger rounded rect for a distinctive "city node" look
+            g.appendChild(this.createElement('rect', {
+                x: -cityWidth / 2 - 3,
+                y: -17,
+                width: cityWidth + 6,
+                height: cityHeight + 6,
+                rx: 10, ry: 10,
+                fill: 'none',
+                stroke: regionColors.border,
+                'stroke-width': 2.5,
+                'stroke-opacity': '0.6',
+                filter: 'url(#innerShadow)',
+            }));
+
+            // City body — rounded shape (rounder rx/ry)
             g.appendChild(this.createElement('rect', {
                 x: -cityWidth / 2,
                 y: -14,
                 width: cityWidth,
                 height: cityHeight,
+                rx: 8, ry: 8,
                 class: 'city-bg',
                 fill: regionColors.fill,
-                'fill-opacity': '0.5',
+                'fill-opacity': '0.55',
                 stroke: regionColors.border,
+                'stroke-width': '2',
                 filter: 'url(#innerShadow)',
             }));
 
             // Dark backing rect behind city name for readability
             const nameLen = city.name.length;
-            const nameWidth = nameLen * 5 + 10;
+            const nameWidth = Math.max(nameLen * 6.5 + 12, cityWidth - 4);
             g.appendChild(this.createElement('rect', {
                 x: -nameWidth / 2,
-                y: -12,
+                y: -13,
                 width: nameWidth,
-                height: 14,
-                fill: 'rgba(0,0,0,0.65)',
-                rx: 3, ry: 3,
+                height: 16,
+                fill: 'rgba(0,0,0,0.72)',
+                rx: 5, ry: 5,
                 class: 'city-label-bg',
             }));
 
-            // City name
+            // City name — larger and more readable
             const nameText = this.createElement('text', {
-                x: 0, y: 0,
+                x: 0, y: -2,
                 class: 'city-label',
-                'font-size': city.name.length > 12 ? '7' : '9',
+                'font-size': city.name.length > 12 ? '8.5' : '10',
+                'font-weight': '700',
+                'letter-spacing': '0.5',
+                fill: '#f0e0c0',
             });
             nameText.textContent = city.name;
             g.appendChild(nameText);
 
             // Industry slots
-            const slotStartX = -(slotsPerRow * (this.citySlotSize + 3) - 3) / 2;
-            const slotStartY = 8;
+            const slotStartX = -(slotsPerRow * (this.citySlotSize + 4) - 4) / 2;
+            const slotStartY = 10;
 
             city.slots.forEach((slotTypes, idx) => {
                 const row = Math.floor(idx / slotsPerRow);
                 const col = idx % slotsPerRow;
-                const sx = slotStartX + col * (this.citySlotSize + 3);
-                const sy = slotStartY + row * (this.citySlotSize + 3);
+                const sx = slotStartX + col * (this.citySlotSize + 4);
+                const sy = slotStartY + row * (this.citySlotSize + 4);
 
                 const slotGroup = this.createGroup({
                     class: 'industry-slot',
@@ -466,11 +529,20 @@ class BoardRenderer {
                     'data-slot': idx,
                 });
 
-                // Slot background
+                const typeArr = Array.isArray(slotTypes) ? slotTypes : [slotTypes];
+
+                // Slot border color based on primary type
+                const slotBorderColor = this.getSlotBorderColor(typeArr[0]);
+
+                // Slot background with industry-type colored border
                 slotGroup.appendChild(this.createElement('rect', {
                     x: sx, y: sy,
                     width: this.citySlotSize, height: this.citySlotSize,
-                    class: 'slot-bg',
+                    rx: 4, ry: 4,
+                    fill: 'rgba(0,0,0,0.5)',
+                    stroke: slotBorderColor,
+                    'stroke-width': '1.5',
+                    'stroke-opacity': typeArr.length > 1 ? '0.5' : '0.7',
                 }));
 
                 const boardKey = `${cityId}_${idx}`;
@@ -480,16 +552,14 @@ class BoardRenderer {
                     this.drawBuiltIndustryTile(slotGroup, sx, sy, builtTile);
                 } else {
                     // Show slot type indicators with SVG icons
-                    const typeArr = Array.isArray(slotTypes) ? slotTypes : [slotTypes];
-
                     if (typeArr.length === 1) {
                         // Single type: show icon
-                        const iconG = this.getIndustryIcon(typeArr[0], 12);
+                        const iconG = this.getIndustryIcon(typeArr[0], 13);
                         iconG.setAttribute('transform', `translate(${sx + this.citySlotSize/2}, ${sy + this.citySlotSize/2})`);
-                        iconG.setAttribute('opacity', '0.35');
+                        iconG.setAttribute('opacity', '0.45');
                         slotGroup.appendChild(iconG);
                     } else {
-                        // Multiple types: show abbreviations
+                        // Multiple types: show abbreviations with better contrast
                         const typeStr = typeArr.map(t => {
                             const d = INDUSTRY_DISPLAY[t];
                             return d ? d.shortName[0] : '?';
@@ -499,8 +569,9 @@ class BoardRenderer {
                             x: sx + this.citySlotSize / 2,
                             y: sy + this.citySlotSize / 2,
                             class: 'slot-icon',
-                            'font-size': '6',
-                            fill: 'rgba(255,255,255,0.35)',
+                            'font-size': '7',
+                            fill: 'rgba(255,255,255,0.5)',
+                            'dominant-baseline': 'central',
                         });
                         iconText.textContent = typeStr;
                         slotGroup.appendChild(iconText);
@@ -521,60 +592,73 @@ class BoardRenderer {
         const display = INDUSTRY_DISPLAY[tile.type];
         const playerColor = this.state.players[tile.playerId].color;
 
+        // Outer glow for player color — makes tiles visually prominent
+        parent.appendChild(this.createElement('rect', {
+            x: x - 2, y: y - 2,
+            width: s + 4, height: s + 4,
+            rx: 6, ry: 6,
+            fill: 'none',
+            stroke: playerColor,
+            'stroke-width': 2,
+            'stroke-opacity': tile.flipped ? '0.3' : '0.55',
+            filter: `drop-shadow(0 0 3px ${playerColor})`,
+        }));
+
         // Tile background with player color
         parent.appendChild(this.createElement('rect', {
             x, y, width: s, height: s,
-            rx: 3, ry: 3,
-            fill: tile.flipped ? '#2a3a2a' : playerColor,
-            stroke: tile.flipped ? '#4a8a4a' : playerColor,
+            rx: 4, ry: 4,
+            fill: tile.flipped
+                ? 'url(#tileFlippedBg)'
+                : playerColor,
+            stroke: tile.flipped ? '#5aaa5a' : 'rgba(255,255,255,0.25)',
             'stroke-width': tile.flipped ? 1.5 : 1,
-            opacity: tile.flipped ? 0.9 : 1,
+            opacity: tile.flipped ? 0.92 : 1,
             class: 'built-tile' + (tile.flipped ? ' flipped' : ''),
         }));
 
-        // Player color strip at top
-        if (!tile.flipped) {
-            parent.appendChild(this.createElement('rect', {
-                x: x, y: y, width: s, height: 4,
-                rx: 3, ry: 0,
-                fill: playerColor,
-                opacity: 0.8,
-            }));
-        }
+        // Shine highlight at top of tile
+        parent.appendChild(this.createElement('rect', {
+            x: x + 2, y: y + 2,
+            width: s - 4, height: 4,
+            rx: 2, ry: 2,
+            fill: 'rgba(255,255,255,0.2)',
+        }));
 
-        // Level number
+        // Level number — larger and bolder
         const levelText = this.createElement('text', {
-            x: x + 4, y: y + 8,
-            'font-size': '7',
-            fill: tile.flipped ? '#8aca8a' : 'white',
-            'font-weight': '600',
+            x: x + 4, y: y + 10,
+            'font-size': '9',
+            fill: tile.flipped ? '#9aea9a' : 'white',
+            'font-weight': '800',
+            'font-family': 'Cinzel, serif',
         });
         levelText.textContent = tile.tileData.level;
         parent.appendChild(levelText);
 
-        // Industry SVG icon in center
-        const iconG = this.getIndustryIcon(tile.type, 10);
-        iconG.setAttribute('transform', `translate(${x + s/2}, ${y + s/2 + 1})`);
+        // Industry SVG icon in center — larger
+        const iconG = this.getIndustryIcon(tile.type, 12);
+        iconG.setAttribute('transform', `translate(${x + s/2}, ${y + s/2 + 2})`);
         if (tile.flipped) {
-            iconG.setAttribute('opacity', '0.7');
+            iconG.setAttribute('opacity', '0.8');
         }
         parent.appendChild(iconG);
 
-        // VP badge if flipped
+        // VP badge if flipped — bigger and clearer
         if (tile.flipped) {
-            // VP badge circle
             parent.appendChild(this.createElement('circle', {
-                cx: x + s - 4, cy: y + s - 4, r: 5,
+                cx: x + s - 5, cy: y + s - 5, r: 6,
                 fill: '#c9a84c',
-                stroke: '#a08030',
-                'stroke-width': 0.5,
+                stroke: '#8a6020',
+                'stroke-width': 1,
+                filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))',
             }));
             const vpText = this.createElement('text', {
-                x: x + s - 4, y: y + s - 2,
+                x: x + s - 5, y: y + s - 2,
                 'text-anchor': 'middle',
-                'font-size': '6',
+                'font-size': '7',
                 fill: '#1a1510',
-                'font-weight': '700',
+                'font-weight': '800',
             });
             vpText.textContent = tile.tileData.vp;
             parent.appendChild(vpText);
@@ -587,18 +671,20 @@ class BoardRenderer {
                 const cx = x + s - 5 - (i % 3) * 6;
                 const cy = y + s - 5 - Math.floor(i / 3) * 6;
                 let cubeColor = '#666';
-                if (tile.type === INDUSTRY_TYPES.COAL_MINE) cubeColor = '#2c2c2c';
-                else if (tile.type === INDUSTRY_TYPES.IRON_WORKS) cubeColor = '#d4760a';
-                else if (tile.type === INDUSTRY_TYPES.BREWERY) cubeColor = '#c9a84c';
+                let cubeShadow = '#333';
+                if (tile.type === INDUSTRY_TYPES.COAL_MINE) { cubeColor = '#3a3a3a'; cubeShadow = '#111'; }
+                else if (tile.type === INDUSTRY_TYPES.IRON_WORKS) { cubeColor = '#e08020'; cubeShadow = '#904800'; }
+                else if (tile.type === INDUSTRY_TYPES.BREWERY) { cubeColor = '#d4b840'; cubeShadow = '#907010'; }
 
                 parent.appendChild(this.createElement('rect', {
                     x: cx - cubeSize / 2, y: cy - cubeSize / 2,
                     width: cubeSize, height: cubeSize,
                     rx: 1, ry: 1,
                     fill: cubeColor,
-                    stroke: 'rgba(255,255,255,0.3)',
+                    stroke: 'rgba(255,255,255,0.35)',
                     'stroke-width': 0.5,
                     class: 'resource-cube',
+                    filter: `drop-shadow(0 1px 1px ${cubeShadow})`,
                 }));
             }
         }
@@ -754,38 +840,61 @@ class BoardRenderer {
 
             const drawBuiltSegment = (seg) => {
                 if (link.type === 'canal') {
-                    // Canal built: player color with water effect
+                    // Built canal: solid thick blue with player color overlay
+                    // Outer blue glow (water base)
                     linkGroup.appendChild(this.createElement('line', {
                         ...seg,
-                        stroke: playerColor,
-                        'stroke-width': 7,
+                        stroke: '#4499cc',
+                        'stroke-width': 10,
                         'stroke-linecap': 'round',
-                        'stroke-opacity': '0.4',
+                        'stroke-opacity': '0.3',
                         class: 'connection-line built',
                     }));
+                    // Mid blue layer
+                    linkGroup.appendChild(this.createElement('line', {
+                        ...seg,
+                        stroke: '#3388bb',
+                        'stroke-width': 6,
+                        'stroke-linecap': 'round',
+                        'stroke-opacity': '0.5',
+                        class: 'connection-line built',
+                    }));
+                    // Player color overlay — bright center
                     linkGroup.appendChild(this.createElement('line', {
                         ...seg,
                         stroke: playerColor,
                         'stroke-width': 3,
                         'stroke-linecap': 'round',
+                        'stroke-opacity': '0.85',
                         class: 'connection-line built',
                     }));
                 } else {
-                    // Rail built: player color with track pattern
+                    // Built rail: dark with player color, with tie pattern
+                    // Outer dark ballast bed
                     linkGroup.appendChild(this.createElement('line', {
                         ...seg,
-                        stroke: playerColor,
-                        'stroke-width': 5,
+                        stroke: '#333',
+                        'stroke-width': 7,
                         'stroke-linecap': 'round',
-                        'stroke-opacity': '0.5',
+                        'stroke-opacity': '0.7',
                         class: 'connection-line built',
                     }));
+                    // Player color rail line
                     linkGroup.appendChild(this.createElement('line', {
                         ...seg,
                         stroke: playerColor,
-                        'stroke-width': 2,
+                        'stroke-width': 4,
+                        'stroke-linecap': 'round',
+                        'stroke-opacity': '0.75',
+                        class: 'connection-line built',
+                    }));
+                    // Tie/sleeper pattern over player color
+                    linkGroup.appendChild(this.createElement('line', {
+                        ...seg,
+                        stroke: 'rgba(0,0,0,0.5)',
+                        'stroke-width': 3,
                         'stroke-linecap': 'butt',
-                        'stroke-dasharray': '2 5',
+                        'stroke-dasharray': '3 8',
                         class: 'connection-line built',
                     }));
                 }
