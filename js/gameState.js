@@ -280,8 +280,8 @@ class GameState {
             const link = this.boardLinks[conn.id];
             if (link && link.playerId === playerId) {
                 if (conn.cities.includes(locationId)) return true;
-                // Check via brewery for kidderminster-worcester
-                if (conn.viaBrewery && (conn.cities[0] === locationId || conn.cities[1] === locationId)) {
+                // Check if locationId is the brewery farm that this link passes through
+                if (conn.viaBrewery && conn.viaBrewery === locationId) {
                     return true;
                 }
             }
@@ -298,20 +298,28 @@ class GameState {
             const link = this.boardLinks[conn.id];
             if (!link) continue;
 
-            let otherEnd = null;
-            if (conn.cities[0] === locationId) otherEnd = conn.cities[1];
-            else if (conn.cities[1] === locationId) otherEnd = conn.cities[0];
-            else if (conn.viaBrewery === locationId) {
-                otherEnd = conn.cities[0] === locationId ? conn.cities[1] : conn.cities[0];
+            // Determine the other endpoint(s) reachable from locationId
+            const endpoints = [];
+            if (conn.cities[0] === locationId) {
+                endpoints.push(conn.cities[1]);
+                if (conn.viaBrewery) endpoints.push(conn.viaBrewery);
+            } else if (conn.cities[1] === locationId) {
+                endpoints.push(conn.cities[0]);
+                if (conn.viaBrewery) endpoints.push(conn.viaBrewery);
+            } else if (conn.viaBrewery === locationId) {
+                // When at the brewery farm, both city endpoints are reachable
+                endpoints.push(conn.cities[0], conn.cities[1]);
             }
 
-            if (otherEnd) {
+            if (endpoints.length > 0) {
                 visitedConnections.add(conn.id);
-                connected.add(otherEnd);
-                if (conn.viaBrewery) connected.add(conn.viaBrewery);
-                // Recursively find connected locations
-                const further = this.getConnectedLocations(otherEnd, visitedConnections);
-                for (const loc of further) connected.add(loc);
+                for (const otherEnd of endpoints) {
+                    if (!connected.has(otherEnd)) {
+                        connected.add(otherEnd);
+                        const further = this.getConnectedLocations(otherEnd, visitedConnections);
+                        for (const loc of further) connected.add(loc);
+                    }
+                }
             }
         }
         return connected;
@@ -348,12 +356,19 @@ class GameState {
                 const link = this.boardLinks[conn.id];
                 if (!link) continue;
 
-                let otherEnd = null;
-                if (conn.cities[0] === loc) otherEnd = conn.cities[1];
-                else if (conn.cities[1] === loc) otherEnd = conn.cities[0];
+                const neighbors = [];
+                if (conn.cities[0] === loc) {
+                    neighbors.push(conn.cities[1]);
+                    if (conn.viaBrewery) neighbors.push(conn.viaBrewery);
+                } else if (conn.cities[1] === loc) {
+                    neighbors.push(conn.cities[0]);
+                    if (conn.viaBrewery) neighbors.push(conn.viaBrewery);
+                } else if (conn.viaBrewery === loc) {
+                    neighbors.push(conn.cities[0], conn.cities[1]);
+                }
 
-                if (otherEnd && !visited.has(otherEnd)) {
-                    queue.push({ loc: otherEnd, distance: distance + 1 });
+                for (const n of neighbors) {
+                    if (!visited.has(n)) queue.push({ loc: n, distance: distance + 1 });
                 }
             }
         }
@@ -361,9 +376,10 @@ class GameState {
         // Sort by distance (nearest first)
         sources.sort((a, b) => a.distance - b.distance);
 
-        // Also add market as option
-        if (this.coalMarket > 0) {
-            sources.push({ type: 'market', price: this.getCoalPrice(), free: false });
+        // Add one market entry per available coal cube so callers needing 2+ coal see enough entries
+        for (let i = 0; i < this.coalMarket; i++) {
+            const spaceIndex = COAL_MARKET_PRICES.length - this.coalMarket + i;
+            sources.push({ type: 'market', price: COAL_MARKET_PRICES[spaceIndex] || Infinity, free: false });
         }
 
         return sources;
@@ -381,9 +397,10 @@ class GameState {
             }
         }
 
-        // Market
-        if (this.ironMarket > 0) {
-            sources.push({ type: 'market', price: this.getIronPrice(), free: false });
+        // Add one market entry per available iron cube so callers needing 2+ iron see enough entries
+        for (let i = 0; i < this.ironMarket; i++) {
+            const spaceIndex = IRON_MARKET_PRICES.length - this.ironMarket + i;
+            sources.push({ type: 'market', price: IRON_MARKET_PRICES[spaceIndex] || Infinity, free: false });
         }
 
         return sources;
@@ -642,11 +659,6 @@ class GameState {
         // Score rail era
         const scores = this.calculateEraScore();
         this.gameOver = true;
-
-        // Add income bonus VP
-        for (const player of this.players) {
-            player.vp += player.income;
-        }
 
         return scores;
     }
