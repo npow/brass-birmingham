@@ -533,7 +533,9 @@ const IRON_MARKET_INITIAL = 8; // cubes at start (spaces 2-9 filled, spaces 0-1 
 // 21 to 30: 4 track spaces per level
 // Total track spaces: 11 + 20 + 30 + 40 = 101
 
-const INITIAL_MONEY = 17;
+// Starting money varies by player count per official Brass: Birmingham rules
+const INITIAL_MONEY_BY_PLAYERS = { 2: 17, 3: 14, 4: 10 };
+const INITIAL_MONEY = 17; // fallback (2-player default)
 const INITIAL_INCOME = 10;
 const LOAN_AMOUNT = 30;
 const LOAN_INCOME_PENALTY = 3;

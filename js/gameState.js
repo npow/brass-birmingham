@@ -75,7 +75,7 @@ class GameState {
             color: PLAYER_COLORS[index],
             bgColor: PLAYER_BG_COLORS[index],
             colorName: PLAYER_NAMES[index],
-            money: INITIAL_MONEY,
+            money: INITIAL_MONEY_BY_PLAYERS[this.numPlayers] ?? INITIAL_MONEY,
             income: INITIAL_INCOME,
             vp: 0,
             hand: [],

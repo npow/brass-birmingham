@@ -51,18 +51,21 @@ class GameLogic {
                     if (this.state.era === ERA.CANAL && !nextTile.canalEra) continue;
                     if (this.state.era === ERA.RAIL && !nextTile.railEra) continue;
 
-                    // Canal era: only one tile per location per player
+                    // Canal era: only one tile per location per player.
+                    // Exclude the current slot from the check: overbuilding it
+                    // would replace the existing tile, keeping the count at 1.
                     if (this.state.era === ERA.CANAL) {
-                        let hasOwnTile = false;
+                        let hasOwnTileElsewhere = false;
                         for (let i = 0; i < city.slots.length; i++) {
+                            if (i === slotIndex) continue; // same slot = potential overbuild, don't count
                             const k = `${cityId}_${i}`;
                             const t = this.state.boardIndustries[k];
                             if (t && t.playerId === playerId) {
-                                hasOwnTile = true;
+                                hasOwnTileElsewhere = true;
                                 break;
                             }
                         }
-                        if (hasOwnTile) continue;
+                        if (hasOwnTileElsewhere) continue;
                     }
 
                     // Check if slot is empty or can be overbuilt
