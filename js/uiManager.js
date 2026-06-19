@@ -169,9 +169,15 @@ class UIManager {
                 const city = CITIES[card.location];
                 const regionColor = city ? REGION_COLORS[city.region]?.fill : '#4a4a4a';
 
+                // Apply region color as background tint so cards are visually distinct by region
+                if (regionColor) {
+                    cardEl.style.borderColor = regionColor;
+                    cardEl.style.boxShadow = `0 0 6px ${regionColor}55`;
+                }
+
                 cardEl.innerHTML = `
                     <div class="card-type">Location</div>
-                    ${CARD_SVG_ICONS[INDUSTRY_TYPES.COTTON_MILL] ? '<div style="font-size:20px;margin:4px 0;">📍</div>' : ''}
+                    <div style="font-size:20px;margin:4px 0;">📍</div>
                     <div class="card-name">${card.name}</div>
                 `;
             } else if (card.type === CARD_TYPES.INDUSTRY) {
@@ -201,6 +207,12 @@ class UIManager {
 
             if (this.selectedCard === idx) {
                 cardEl.classList.add('selected');
+            }
+
+            // Mark cards already queued for scout discard
+            if (this.selectedAction === ACTIONS.SCOUT &&
+                    this.pendingData.scoutCards && this.pendingData.scoutCards.includes(idx)) {
+                cardEl.classList.add('scout-queued');
             }
 
             // Card selection mode visual states
@@ -897,6 +909,12 @@ class UIManager {
 
             case ACTIONS.SCOUT: {
                 if (!this.pendingData.scoutCards) this.pendingData.scoutCards = [];
+                // Prevent selecting the same card index twice
+                if (this.pendingData.scoutCards.includes(cardIndex)) {
+                    this.selectedCard = null;
+                    this.updateHand();
+                    break;
+                }
                 this.pendingData.scoutCards.push(cardIndex);
 
                 if (this.pendingData.scoutCards.length >= 3) {

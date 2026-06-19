@@ -883,6 +883,13 @@ h1, h2, h3 {
     pointer-events: none;
 }
 
+.card.scout-queued {
+    border-color: #e74c3c;
+    box-shadow: 0 0 10px rgba(231,76,60,0.5);
+    opacity: 0.6;
+    pointer-events: none;
+}
+
 .card-type {
     font-size: 9px;
     text-transform: uppercase;
