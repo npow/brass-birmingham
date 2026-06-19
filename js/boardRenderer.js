@@ -329,7 +329,7 @@ class BoardRenderer {
             }
 
             for (const seg of segments) {
-                if (isCanal && (era === ERA.CANAL || (isCanal && isRail))) {
+                if (isCanal && era === ERA.CANAL) {
                     // Canal: double-line blue water effect
                     // Outer thick translucent line
                     connGroup.appendChild(this.createElement('line', {
@@ -352,7 +352,7 @@ class BoardRenderer {
                         class: 'connection-line',
                         'pointer-events': 'none',
                     }));
-                } else if (isRail) {
+                } else if (isRail && era === ERA.RAIL) {
                     // Rail: parallel lines with tie marks
                     // Main rail line
                     connGroup.appendChild(this.createElement('line', {

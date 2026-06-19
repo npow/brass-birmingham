@@ -185,13 +185,14 @@ class GameLogic {
         const player = this.state.players[playerId];
         const key = `${cityId}_${slotIndex}`;
 
-        // Get the tile to place
-        const tileData = this.state.useNextTile(playerId, industryType);
-        if (!tileData) return { success: false, message: 'No tile available' };
-
-        // Calculate and pay costs
+        // Validate cost before consuming the tile — calculateBuildCost uses getNextTile
+        // internally, so calling useNextTile first would advance the tile pointer and
+        // compute cost for the wrong (next-level) tile.
         const cost = this.calculateBuildCost(playerId, industryType, cityId);
         if (!cost) return { success: false, message: 'Cannot afford this build' };
+
+        const tileData = this.state.useNextTile(playerId, industryType);
+        if (!tileData) return { success: false, message: 'No tile available' };
 
         this.state.spendMoney(playerId, cost.total);
 

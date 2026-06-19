@@ -536,13 +536,7 @@ class GameState {
             safety++;
             if (this.currentPlayerIndex >= this.numPlayers) {
                 this.currentPlayerIndex = 0;
-                // If we've wrapped around and everyone is empty, check for era end
-                const allEmpty = this.players.every(p => p.hand.length === 0);
-                if (allEmpty && this.drawDeck.length === 0) {
-                    if (this.era === ERA.CANAL) return 'endCanalEra';
-                    else return 'endGame';
-                }
-                const roundResult = this.endRound();
+                const roundResult = this.endRound(); // handles income, era-end detection
                 if (roundResult !== 'continue') return roundResult;
             }
         }
