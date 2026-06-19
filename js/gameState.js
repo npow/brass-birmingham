@@ -483,14 +483,11 @@ class GameState {
         this.selectedAction = null;
         this.pendingAction = null;
 
-        // Check if era should end (current player just played their last card)
+        // Check if era should end mid-turn (all hands empty, deck exhausted).
+        // Call endRound to distribute income before signaling era end.
         const allHandsEmpty = this.players.every(p => p.hand.length === 0);
         if (allHandsEmpty && this.drawDeck.length === 0) {
-            if (this.era === ERA.CANAL) {
-                return 'endCanalEra';
-            } else {
-                return 'endGame';
-            }
+            return this.endRound(); // returns 'endCanalEra' or 'endGame'
         }
 
         if (this.actionsThisTurn >= this.actionsPerTurn) {
@@ -627,12 +624,22 @@ class GameState {
             mt.hasBeer = true;
         }
 
-        // Reshuffle all cards into draw deck
-        this.initDeck();
-        // Clear player hands
+        // Return any wild cards from player hands before clearing
         for (const player of this.players) {
+            for (const card of player.hand) {
+                if (card.type === CARD_TYPES.WILD_LOCATION) {
+                    this.wildLocationPile++;
+                    player.hasWildLocation = false;
+                } else if (card.type === CARD_TYPES.WILD_INDUSTRY) {
+                    this.wildIndustryPile++;
+                    player.hasWildIndustry = false;
+                }
+            }
             player.hand = [];
         }
+
+        // Reshuffle all cards into draw deck
+        this.initDeck();
         this.dealCards();
 
         return scores;
@@ -667,6 +674,7 @@ class GameState {
             if (!conn) continue;
 
             let linkValue = 0;
+            // Score both city endpoints
             for (const cityId of conn.cities) {
                 if (isCity(cityId)) {
                     const city = CITIES[cityId];
@@ -687,6 +695,13 @@ class GameState {
                     if (tile && tile.flipped) {
                         linkValue += tile.tileData.linkVP;
                     }
+                }
+            }
+            // Also score brewery farms that this link passes through (e.g. kidderminster-worcester via southern)
+            if (conn.viaBrewery) {
+                const tile = this.breweryFarmTiles[conn.viaBrewery];
+                if (tile && tile.flipped) {
+                    linkValue += tile.tileData.linkVP;
                 }
             }
 
