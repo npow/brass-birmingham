@@ -517,7 +517,7 @@ class GameLogic {
             let hasMerchant = false;
 
             for (const mt of this.state.merchantTiles) {
-                if (connected.has(mt.location)) {
+                if (!mt.bonusClaimed && connected.has(mt.location)) {
                     if (mt.buys === null || mt.buys === tile.type) {
                         hasMerchant = true;
                         break;
@@ -548,6 +548,9 @@ class GameLogic {
         const player = this.state.players[playerId];
         const results = [];
 
+        // Per game rules, a single sell action claims at most ONE merchant bonus.
+        let merchantBonusClaimed = false;
+
         for (const key of tileKeys) {
             const tile = this.state.boardIndustries[key];
             if (!tile || tile.playerId !== playerId || tile.flipped) continue;
@@ -573,32 +576,35 @@ class GameLogic {
             tile.flipped = true;
             this.state.adjustIncome(playerId, tile.tileData.income);
 
-            // Check for merchant bonus
-            const connected = this.state.getConnectedLocations(cityId);
-            for (const mt of this.state.merchantTiles) {
-                if (!mt.bonusClaimed && connected.has(mt.location)) {
-                    if (mt.buys === null || mt.buys === tile.type) {
-                        mt.bonusClaimed = true;
-                        // Apply bonus
-                        const merchData = MERCHANTS[mt.location];
-                        if (merchData) {
-                            switch (merchData.bonusType) {
-                                case 'vp':
-                                    player.vp += merchData.bonusAmount;
-                                    break;
-                                case 'money':
-                                    player.money += merchData.bonusAmount;
-                                    break;
-                                case 'income':
-                                    this.state.adjustIncome(playerId, merchData.bonusAmount);
-                                    break;
-                                case 'develop':
-                                    // Free develop: remove lowest tile from player mat (no iron cost)
-                                    this.applyFreeDevelop(playerId, merchData.bonusAmount);
-                                    break;
+            // Check for merchant bonus (at most one bonus per sell action)
+            if (!merchantBonusClaimed) {
+                const connected = this.state.getConnectedLocations(cityId);
+                for (const mt of this.state.merchantTiles) {
+                    if (!mt.bonusClaimed && connected.has(mt.location)) {
+                        if (mt.buys === null || mt.buys === tile.type) {
+                            mt.bonusClaimed = true;
+                            merchantBonusClaimed = true;
+                            // Apply bonus
+                            const merchData = MERCHANTS[mt.location];
+                            if (merchData) {
+                                switch (merchData.bonusType) {
+                                    case 'vp':
+                                        player.vp += merchData.bonusAmount;
+                                        break;
+                                    case 'money':
+                                        player.money += merchData.bonusAmount;
+                                        break;
+                                    case 'income':
+                                        this.state.adjustIncome(playerId, merchData.bonusAmount);
+                                        break;
+                                    case 'develop':
+                                        // Free develop: remove lowest tile from player mat (no iron cost)
+                                        this.applyFreeDevelop(playerId, merchData.bonusAmount);
+                                        break;
+                                }
                             }
+                            break; // Only one merchant per sell action
                         }
-                        break; // Only one bonus per sell
                     }
                 }
             }

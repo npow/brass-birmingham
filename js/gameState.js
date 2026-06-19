@@ -390,10 +390,13 @@ class GameState {
         const sources = [];
 
         // Iron doesn't need connection - any iron works on the board
+        // Add one entry per available cube so callers needing 2+ iron see enough entries
         for (const [key, tile] of Object.entries(this.boardIndustries)) {
             if (tile.type === INDUSTRY_TYPES.IRON_WORKS &&
                 !tile.flipped && tile.resourceCubes > 0) {
-                sources.push({ type: 'works', key, free: true });
+                for (let c = 0; c < tile.resourceCubes; c++) {
+                    sources.push({ type: 'works', key, free: true });
+                }
             }
         }
 
@@ -411,17 +414,22 @@ class GameState {
         const sources = [];
 
         // Own breweries anywhere (no connection needed)
+        // Add one entry per available cube so callers needing 2+ beer see enough entries
         for (const [key, tile] of Object.entries(this.boardIndustries)) {
             if (tile.type === INDUSTRY_TYPES.BREWERY && tile.playerId === playerId &&
                 !tile.flipped && tile.resourceCubes > 0) {
-                sources.push({ type: 'own', key });
+                for (let c = 0; c < tile.resourceCubes; c++) {
+                    sources.push({ type: 'own', key });
+                }
             }
         }
         // Own brewery farms
         for (const [farmId, tile] of Object.entries(this.breweryFarmTiles)) {
             if (tile && tile.type === INDUSTRY_TYPES.BREWERY && tile.playerId === playerId &&
                 !tile.flipped && tile.resourceCubes > 0) {
-                sources.push({ type: 'own', key: `farm_${farmId}` });
+                for (let c = 0; c < tile.resourceCubes; c++) {
+                    sources.push({ type: 'own', key: `farm_${farmId}` });
+                }
             }
         }
 
@@ -436,7 +444,9 @@ class GameState {
                     if (tile && tile.type === INDUSTRY_TYPES.BREWERY &&
                         tile.playerId !== playerId &&
                         !tile.flipped && tile.resourceCubes > 0) {
-                        sources.push({ type: 'opponent', key });
+                        for (let c = 0; c < tile.resourceCubes; c++) {
+                            sources.push({ type: 'opponent', key });
+                        }
                     }
                 }
             }
@@ -445,7 +455,9 @@ class GameState {
                 if (tile && tile.type === INDUSTRY_TYPES.BREWERY &&
                     tile.playerId !== playerId &&
                     !tile.flipped && tile.resourceCubes > 0) {
-                    sources.push({ type: 'opponent', key: `farm_${loc}` });
+                    for (let c = 0; c < tile.resourceCubes; c++) {
+                        sources.push({ type: 'opponent', key: `farm_${loc}` });
+                    }
                 }
             }
         }
