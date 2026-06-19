@@ -565,12 +565,12 @@ class GameState {
             }
         }
 
-        // Determine turn order: player who spent LEAST goes first
+        // Determine turn order: player who spent MOST goes first next round
         // Ties broken by current turn order (earlier player goes first)
         this.turnOrder.sort((a, b) => {
             const spentA = this.moneySpentThisRound[a] || 0;
             const spentB = this.moneySpentThisRound[b] || 0;
-            if (spentA !== spentB) return spentA - spentB; // Less spending = earlier turn
+            if (spentA !== spentB) return spentB - spentA; // More spending = earlier turn
             return 0; // Maintain current relative order for ties
         });
 
@@ -608,19 +608,11 @@ class GameState {
             }
         }
 
-        // Remove all level 1 industry tiles from board
-        for (const [key, tile] of Object.entries(this.boardIndustries)) {
-            if (tile.tileData.level === 1) {
-                delete this.boardIndustries[key];
-            }
-        }
+        // Remove all industry tiles from board (all levels, flipped or not)
+        this.boardIndustries = {};
 
-        // Remove brewery farm level 1 tiles
-        for (const [farmId, tile] of Object.entries(this.breweryFarmTiles)) {
-            if (tile && tile.tileData.level === 1) {
-                delete this.breweryFarmTiles[farmId];
-            }
-        }
+        // Remove all brewery farm tiles
+        this.breweryFarmTiles = {};
 
         // Transition to rail era
         this.era = ERA.RAIL;

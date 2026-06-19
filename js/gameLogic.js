@@ -308,10 +308,9 @@ class GameLogic {
                 cost = CANAL_LINK_COST;
             } else {
                 cost = RAIL_LINK_COST;
-                // Rail also needs coal
-                const coalSources = this.state.findCoalSource(conn.cities[0], playerId);
-                if (coalSources.length === 0) continue; // No coal available
-                const coalSource = coalSources[0];
+                // Rail also needs coal — check both endpoints, pick cheapest source
+                const coalSource = this.findCheapestCoalForLink(conn, playerId);
+                if (!coalSource) continue; // No coal available from either end
                 cost += coalSource.free ? 0 : coalSource.price;
             }
 
@@ -341,14 +340,12 @@ class GameLogic {
             this.state.spendMoney(playerId, CANAL_LINK_COST);
         } else {
             let totalCost = RAIL_LINK_COST;
-            // Consume coal for rail
-            const coalSources = this.state.findCoalSource(conn.cities[0], playerId);
-            if (coalSources.length > 0) {
-                const src = coalSources[0];
+            // Consume coal for rail — check both endpoints, use cheapest source
+            const src = this.findCheapestCoalForLink(conn, playerId);
+            if (src) {
                 if (src.type === 'mine') {
                     this.state.consumeResource(src.key);
                 } else {
-                    // Buy coal from market - add market price to total
                     totalCost += src.price;
                     this.state.coalMarket--;
                 }
@@ -378,6 +375,29 @@ class GameLogic {
         return { success: true, message: `Built ${linkType} link: ${city1} - ${city2}` };
     }
 
+    // Find the cheapest coal source reachable from either endpoint of a connection.
+    // Returns the best source object or null if no coal is available.
+    findCheapestCoalForLink(conn, playerId) {
+        const seen = new Set();
+        const candidates = [];
+
+        for (const cityId of conn.cities) {
+            const sources = this.state.findCoalSource(cityId, playerId);
+            for (const src of sources) {
+                const dedupeKey = src.type === 'mine' ? src.key : 'market';
+                if (!seen.has(dedupeKey)) {
+                    seen.add(dedupeKey);
+                    candidates.push(src);
+                }
+            }
+        }
+
+        if (candidates.length === 0) return null;
+        // Prefer free (board mine) over market; among market entries pick lowest price
+        candidates.sort((a, b) => (a.free ? 0 : a.price) - (b.free ? 0 : b.price));
+        return candidates[0];
+    }
+
     // ========================================================================
     // DEVELOP Action
     // ========================================================================
@@ -387,6 +407,10 @@ class GameLogic {
         // Need iron to develop (1 iron per tile removed)
         const ironSources = this.state.findIronSource(playerId);
         if (ironSources.length === 0) return false;
+
+        // If the only iron available is from the market, player must be able to afford it
+        const firstSource = ironSources[0];
+        if (!firstSource.free && firstSource.price > player.money) return false;
 
         // Need at least one developable tile
         for (const [type, tiles] of Object.entries(player.industryTiles)) {
@@ -418,11 +442,20 @@ class GameLogic {
         // industryType2 can be null for single develop
         const player = this.state.players[playerId];
 
-        // Validate iron availability before proceeding
+        // Validate iron availability and affordability before proceeding
         const tilesToDevelop = industryType2 ? 2 : 1;
         const ironSources = this.state.findIronSource(playerId);
         if (ironSources.length < tilesToDevelop) {
             return { success: false, message: 'Not enough iron available' };
+        }
+
+        // Pre-check: can player afford market iron for each unit needed?
+        let moneyNeeded = 0;
+        for (let i = 0; i < tilesToDevelop; i++) {
+            if (!ironSources[i].free) moneyNeeded += ironSources[i].price;
+        }
+        if (moneyNeeded > player.money) {
+            return { success: false, message: 'Cannot afford market iron' };
         }
 
         // Consume iron (1 per tile developed)
@@ -518,10 +551,11 @@ class GameLogic {
             const beerNeeded = tile.tileData.beersToSell || 0;
             const [cityId] = key.split('_');
 
-            // Consume beer
+            // Consume beer — verify enough is available before flipping
             if (beerNeeded > 0) {
                 const beerSources = this.state.findBeerSources(cityId, playerId);
-                for (let i = 0; i < beerNeeded && i < beerSources.length; i++) {
+                if (beerSources.length < beerNeeded) continue; // Can't afford beer; skip tile
+                for (let i = 0; i < beerNeeded; i++) {
                     const src = beerSources[i];
                     if (src.type === 'merchant') {
                         this.state.merchantTiles[src.index].hasBeer = false;

@@ -881,12 +881,16 @@ class BoardRenderer {
 
     fullUpdate(gameState) {
         this.state = gameState;
-        this.updateIndustrySlots();
-        this.updateLinks();
-        this.updateMerchantBeer();
+        // Remove all dynamic layers first, then re-add in the correct draw order so
+        // that built links always render on top of cities, merchants, and brewery farms.
+        this.svg.querySelector('#brewery-farms-layer')?.remove();
+        this.svg.querySelector('#merchants-layer')?.remove();
+        this.svg.querySelector('#cities-layer')?.remove();
+        this.svg.querySelector('#built-links-layer')?.remove();
 
-        const oldFarms = this.svg.querySelector('#brewery-farms-layer');
-        if (oldFarms) oldFarms.remove();
         this.drawBreweryFarms();
+        this.drawMerchants();
+        this.drawCities();
+        this.drawBuiltLinks();
     }
 }
