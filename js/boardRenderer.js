@@ -51,115 +51,7 @@ class BoardRenderer {
     // ========================================================================
 
     getIndustryIcon(type, size = 14) {
-        const g = this.createGroup();
-        const half = size / 2;
-        const s = size;
-
-        switch (type) {
-            case INDUSTRY_TYPES.COTTON_MILL: {
-                // Factory silhouette: building with chimney
-                const path = this.createElement('path', {
-                    d: `M${-half+1},${half-1} L${-half+1},${-half+3} L${-half+3},${-half+3} L${-half+3},${-half+1} L${-half+5},${-half+1} L${-half+5},${-half+5} L${-half+7},${-half+5} L${-half+7},${-half+1} L${half-1},${-half+1} L${half-1},${half-1} Z`,
-                    fill: 'rgba(255,255,255,0.7)',
-                    stroke: 'none',
-                });
-                g.appendChild(path);
-                break;
-            }
-            case INDUSTRY_TYPES.COAL_MINE: {
-                // Diamond/gem shape
-                const diamond = this.createElement('polygon', {
-                    points: `0,${-half+1} ${half-2},0 0,${half-1} ${-half+2},0`,
-                    fill: 'rgba(255,255,255,0.7)',
-                    stroke: 'none',
-                });
-                g.appendChild(diamond);
-                break;
-            }
-            case INDUSTRY_TYPES.IRON_WORKS: {
-                // Gear/cog shape
-                const r = half - 2;
-                const teeth = 6;
-                let points = '';
-                for (let i = 0; i < teeth * 2; i++) {
-                    const angle = (i * Math.PI) / teeth - Math.PI / 2;
-                    const rad = i % 2 === 0 ? r : r * 0.65;
-                    points += `${Math.cos(angle) * rad},${Math.sin(angle) * rad} `;
-                }
-                const gear = this.createElement('polygon', {
-                    points: points.trim(),
-                    fill: 'rgba(255,255,255,0.7)',
-                    stroke: 'none',
-                });
-                g.appendChild(gear);
-                // Center hole
-                g.appendChild(this.createElement('circle', {
-                    cx: 0, cy: 0, r: r * 0.25,
-                    fill: 'rgba(0,0,0,0.5)',
-                }));
-                break;
-            }
-            case INDUSTRY_TYPES.MANUFACTURER: {
-                // Crate/box shape
-                const bw = s * 0.6;
-                const bh = s * 0.5;
-                g.appendChild(this.createElement('rect', {
-                    x: -bw/2, y: -bh/2,
-                    width: bw, height: bh,
-                    rx: 1, ry: 1,
-                    fill: 'rgba(255,255,255,0.7)',
-                    stroke: 'none',
-                }));
-                // Cross lines on box
-                g.appendChild(this.createElement('line', {
-                    x1: -bw/2, y1: 0, x2: bw/2, y2: 0,
-                    stroke: 'rgba(0,0,0,0.3)', 'stroke-width': 0.8,
-                }));
-                g.appendChild(this.createElement('line', {
-                    x1: 0, y1: -bh/2, x2: 0, y2: bh/2,
-                    stroke: 'rgba(0,0,0,0.3)', 'stroke-width': 0.8,
-                }));
-                break;
-            }
-            case INDUSTRY_TYPES.POTTERY: {
-                // Vase shape
-                const path = this.createElement('path', {
-                    d: `M${-2},${-half+1} L${2},${-half+1} L${3},${-half+3} L${half-2},${1} L${half-3},${half-1} L${-half+3},${half-1} L${-half+2},${1} L${-3},${-half+3} Z`,
-                    fill: 'rgba(255,255,255,0.7)',
-                    stroke: 'none',
-                });
-                g.appendChild(path);
-                break;
-            }
-            case INDUSTRY_TYPES.BREWERY: {
-                // Barrel shape
-                const bw = s * 0.55;
-                const bh = s * 0.6;
-                g.appendChild(this.createElement('ellipse', {
-                    cx: 0, cy: 0,
-                    rx: bw/2, ry: bh/2,
-                    fill: 'rgba(255,255,255,0.7)',
-                    stroke: 'none',
-                }));
-                // Barrel bands
-                g.appendChild(this.createElement('line', {
-                    x1: -bw/2+1, y1: -bh/6, x2: bw/2-1, y2: -bh/6,
-                    stroke: 'rgba(0,0,0,0.3)', 'stroke-width': 0.8,
-                }));
-                g.appendChild(this.createElement('line', {
-                    x1: -bw/2+1, y1: bh/6, x2: bw/2-1, y2: bh/6,
-                    stroke: 'rgba(0,0,0,0.3)', 'stroke-width': 0.8,
-                }));
-                break;
-            }
-            default: {
-                g.appendChild(this.createElement('circle', {
-                    cx: 0, cy: 0, r: half - 2,
-                    fill: 'rgba(255,255,255,0.3)',
-                }));
-            }
-        }
-        return g;
+        return IndustryIcons.renderElement(type, size, 'silhouette');
     }
 
     // ========================================================================
@@ -247,6 +139,17 @@ class BoardRenderer {
         tileFlipped.appendChild(this.createElement('stop', { offset: '0%', 'stop-color': '#2a4a2a' }));
         tileFlipped.appendChild(this.createElement('stop', { offset: '100%', 'stop-color': '#1a3a1a' }));
         defs.appendChild(tileFlipped);
+
+        // Diagonal hatch overlay pattern for flipped ("sold") tiles
+        const hatchPattern = this.createElement('pattern', {
+            id: 'tileFlippedHatch', patternUnits: 'userSpaceOnUse', width: '5', height: '5',
+            patternTransform: 'rotate(45)',
+        });
+        hatchPattern.appendChild(this.createElement('line', {
+            x1: '0', y1: '0', x2: '0', y2: '5',
+            stroke: 'rgba(255,255,255,0.12)', 'stroke-width': '2',
+        }));
+        defs.appendChild(hatchPattern);
 
         // Glow filter for built tiles
         const glowFilter = this.createElement('filter', {
@@ -488,6 +391,15 @@ class BoardRenderer {
                 filter: 'url(#innerShadow)',
             }));
 
+            // Beveled paper-cut highlight along the top edge
+            g.appendChild(this.createElement('path', {
+                d: `M${-cityWidth / 2 + 8},${-13} Q${-cityWidth / 2},${-13} ${-cityWidth / 2},${-5}`,
+                fill: 'none',
+                stroke: 'rgba(255,255,255,0.25)',
+                'stroke-width': 1,
+                'stroke-linecap': 'round',
+            }));
+
             // Dark backing rect behind city name for readability
             const nameLen = city.name.length;
             const nameWidth = Math.max(nameLen * 6.5 + 12, cityWidth - 4);
@@ -625,6 +537,16 @@ class BoardRenderer {
             fill: 'rgba(255,255,255,0.2)',
         }));
 
+        // Diagonal hatch overlay for sold/flipped tiles — makes the state
+        // change readable at a glance, not just a color swap.
+        if (tile.flipped) {
+            parent.appendChild(this.createElement('rect', {
+                x, y, width: s, height: s,
+                rx: 4, ry: 4,
+                fill: 'url(#tileFlippedHatch)',
+            }));
+        }
+
         // Level number — larger and bolder
         const levelText = this.createElement('text', {
             x: x + 4, y: y + 10,
@@ -636,6 +558,18 @@ class BoardRenderer {
         levelText.textContent = tile.tileData.level;
         parent.appendChild(levelText);
 
+        // Level pips — small progress dots under the level number (capped
+        // at 4 for legibility at this tile size).
+        const pipCount = Math.min(tile.tileData.level, 4);
+        const pipTrack = Math.min(4, Math.max(pipCount, 2));
+        for (let i = 0; i < pipTrack; i++) {
+            parent.appendChild(this.createElement('circle', {
+                cx: x + 4 + i * 3.5, cy: y + 13,
+                r: 1,
+                fill: i < pipCount ? (tile.flipped ? '#9aea9a' : 'rgba(255,255,255,0.9)') : 'rgba(255,255,255,0.25)',
+            }));
+        }
+
         // Industry SVG icon in center — larger
         const iconG = this.getIndustryIcon(tile.type, 12);
         iconG.setAttribute('transform', `translate(${x + s/2}, ${y + s/2 + 2})`);
@@ -644,8 +578,15 @@ class BoardRenderer {
         }
         parent.appendChild(iconG);
 
-        // VP badge if flipped — bigger and clearer
+        // VP badge if flipped — bigger, clearer, with a small burst ring
         if (tile.flipped) {
+            parent.appendChild(this.createElement('circle', {
+                cx: x + s - 5, cy: y + s - 5, r: 7.5,
+                fill: 'none',
+                stroke: '#c9a84c',
+                'stroke-width': 0.75,
+                'stroke-opacity': 0.5,
+            }));
             parent.appendChild(this.createElement('circle', {
                 cx: x + s - 5, cy: y + s - 5, r: 6,
                 fill: '#c9a84c',
@@ -664,27 +605,36 @@ class BoardRenderer {
             parent.appendChild(vpText);
         }
 
-        // Resource cubes
+        // Resource cubes — 2-face isometric-style block (top face + shaded
+        // side face) instead of a flat square.
         if (!tile.flipped && tile.resourceCubes > 0) {
             const cubeSize = 5;
             for (let i = 0; i < tile.resourceCubes; i++) {
                 const cx = x + s - 5 - (i % 3) * 6;
                 const cy = y + s - 5 - Math.floor(i / 3) * 6;
-                let cubeColor = '#666';
-                let cubeShadow = '#333';
-                if (tile.type === INDUSTRY_TYPES.COAL_MINE) { cubeColor = '#3a3a3a'; cubeShadow = '#111'; }
-                else if (tile.type === INDUSTRY_TYPES.IRON_WORKS) { cubeColor = '#e08020'; cubeShadow = '#904800'; }
-                else if (tile.type === INDUSTRY_TYPES.BREWERY) { cubeColor = '#d4b840'; cubeShadow = '#907010'; }
+                let topColor = '#777';
+                let sideColor = '#444';
+                if (tile.type === INDUSTRY_TYPES.COAL_MINE) { topColor = '#4a4a4a'; sideColor = '#1a1a1a'; }
+                else if (tile.type === INDUSTRY_TYPES.IRON_WORKS) { topColor = '#e89030'; sideColor = '#a05800'; }
+                else if (tile.type === INDUSTRY_TYPES.BREWERY) { topColor = '#e0c860'; sideColor = '#a08010'; }
 
+                const half = cubeSize / 2;
+                // Side face (shaded, offset down-right to suggest depth)
+                parent.appendChild(this.createElement('polygon', {
+                    points: `${cx - half + 1},${cy + half} ${cx + half},${cy + half} ${cx + half + 1},${cy + half + 1.5} ${cx - half + 2},${cy + half + 1.5}`,
+                    fill: sideColor,
+                    class: 'resource-cube',
+                }));
+                // Top face
                 parent.appendChild(this.createElement('rect', {
-                    x: cx - cubeSize / 2, y: cy - cubeSize / 2,
+                    x: cx - half, y: cy - half,
                     width: cubeSize, height: cubeSize,
                     rx: 1, ry: 1,
-                    fill: cubeColor,
-                    stroke: 'rgba(255,255,255,0.35)',
+                    fill: topColor,
+                    stroke: 'rgba(255,255,255,0.4)',
                     'stroke-width': 0.5,
                     class: 'resource-cube',
-                    filter: `drop-shadow(0 1px 1px ${cubeShadow})`,
+                    filter: `drop-shadow(0 1px 1px ${sideColor})`,
                 }));
             }
         }

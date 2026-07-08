@@ -3,7 +3,7 @@
 // ============================================================================
 
 class GameState {
-    constructor(numPlayers, playerNames) {
+    constructor(numPlayers, playerNames, playerIsAI = []) {
         this.numPlayers = numPlayers;
         this.playerNames = playerNames;
         this.era = ERA.CANAL;
@@ -19,7 +19,8 @@ class GameState {
         // Initialize players
         this.players = [];
         for (let i = 0; i < numPlayers; i++) {
-            this.players.push(this.createPlayer(i, playerNames[i]));
+            const aiConfig = playerIsAI[i] || {};
+            this.players.push(this.createPlayer(i, playerNames[i], !!aiConfig.isAI, aiConfig.difficulty || 'normal'));
         }
 
         // Turn order starts as player order
@@ -53,7 +54,7 @@ class GameState {
         this.pendingAction = null; // { action, step, data }
     }
 
-    createPlayer(index, name) {
+    createPlayer(index, name, isAI = false, aiDifficulty = 'normal') {
         // Create industry tile stacks for this player
         const industryTiles = {};
         for (const [type, levels] of Object.entries(INDUSTRY_DATA)) {
@@ -83,6 +84,8 @@ class GameState {
             linksRemaining: { canal: 14, rail: 14 },
             hasWildLocation: false,
             hasWildIndustry: false,
+            isAI: isAI,
+            aiDifficulty: aiDifficulty,
         };
     }
 
@@ -585,12 +588,12 @@ class GameState {
             }
         }
 
-        // Determine turn order: player who spent MOST goes first next round
+        // Determine turn order: player who spent LEAST goes first next round
         // Ties broken by current turn order (earlier player goes first)
         this.turnOrder.sort((a, b) => {
             const spentA = this.moneySpentThisRound[a] || 0;
             const spentB = this.moneySpentThisRound[b] || 0;
-            if (spentA !== spentB) return spentB - spentA; // More spending = earlier turn
+            if (spentA !== spentB) return spentA - spentB; // Less spending = earlier turn
             return 0; // Maintain current relative order for ties
         });
 
@@ -628,11 +631,20 @@ class GameState {
             }
         }
 
-        // Remove all industry tiles from board (all levels, flipped or not)
-        this.boardIndustries = {};
+        // Remove Level I (canal-era-only) industry tiles; Level II+ tiles persist
+        // into the Rail Era and score again at game end (per the rulebook).
+        for (const [key, tile] of Object.entries(this.boardIndustries)) {
+            if (!tile.tileData.railEra) {
+                delete this.boardIndustries[key];
+            }
+        }
 
-        // Remove all brewery farm tiles
-        this.breweryFarmTiles = {};
+        // Same rule for brewery farm tiles
+        for (const [farmId, tile] of Object.entries(this.breweryFarmTiles)) {
+            if (tile && !tile.tileData.railEra) {
+                delete this.breweryFarmTiles[farmId];
+            }
+        }
 
         // Transition to rail era
         this.era = ERA.RAIL;

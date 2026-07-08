@@ -3,16 +3,6 @@
 // Enhanced with phase bar, game log, turn transitions, card selection mode
 // ============================================================================
 
-// SVG icon paths for card display
-const CARD_SVG_ICONS = {
-    [INDUSTRY_TYPES.COTTON_MILL]: '<svg viewBox="-15 -15 30 30" class="card-svg-icon"><path d="M-10,10 L-10,-4 L-6,-4 L-6,-8 L-2,-8 L-2,-12 L2,-12 L2,-8 L10,-8 L10,10 Z" fill="#b8a68e" stroke="#8a7a68" stroke-width="1"/></svg>',
-    [INDUSTRY_TYPES.COAL_MINE]: '<svg viewBox="-15 -15 30 30" class="card-svg-icon"><polygon points="0,-12 10,0 0,12 -10,0" fill="#555" stroke="#888" stroke-width="1"/></svg>',
-    [INDUSTRY_TYPES.IRON_WORKS]: '<svg viewBox="-15 -15 30 30" class="card-svg-icon"><polygon points="0,-10 5,-8.7 8.7,-5 10,0 8.7,5 5,8.7 0,10 -5,8.7 -8.7,5 -10,0 -8.7,-5 -5,-8.7" fill="#d4760a" stroke="#a05808" stroke-width="1"/><circle cx="0" cy="0" r="3" fill="#2d2519"/></svg>',
-    [INDUSTRY_TYPES.MANUFACTURER]: '<svg viewBox="-15 -15 30 30" class="card-svg-icon"><rect x="-8" y="-6" width="16" height="12" rx="1" fill="#8b6914" stroke="#6a5010" stroke-width="1"/><line x1="-8" y1="0" x2="8" y2="0" stroke="#6a5010" stroke-width="0.8"/><line x1="0" y1="-6" x2="0" y2="6" stroke="#6a5010" stroke-width="0.8"/></svg>',
-    [INDUSTRY_TYPES.POTTERY]: '<svg viewBox="-15 -15 30 30" class="card-svg-icon"><path d="M-3,-10 L3,-10 L4,-6 L8,2 L6,10 L-6,10 L-8,2 L-4,-6 Z" fill="#b03a2e" stroke="#8a2a20" stroke-width="1"/></svg>',
-    [INDUSTRY_TYPES.BREWERY]: '<svg viewBox="-15 -15 30 30" class="card-svg-icon"><ellipse cx="0" cy="0" rx="8" ry="10" fill="#d4a017" stroke="#a08010" stroke-width="1"/><line x1="-7" y1="-3" x2="7" y2="-3" stroke="#a08010" stroke-width="0.8"/><line x1="-7" y1="3" x2="7" y2="3" stroke="#a08010" stroke-width="0.8"/></svg>',
-};
-
 class UIManager {
     constructor() {
         this.state = null;
@@ -36,6 +26,7 @@ class UIManager {
         this.addLogEntry(null, `Canal Era`, 'era');
         this.previousPlayerId = this.state.currentPlayerId;
         this.refresh();
+        this.runAITurnLoop(); // in case the first seat is AI-controlled
     }
 
     // ========================================================================
@@ -127,7 +118,7 @@ class UIManager {
 
             panel.innerHTML = `
                 <div class="player-panel-header">
-                    <span class="player-panel-name" style="color: ${player.color}">${player.name}</span>
+                    <span class="player-panel-name" style="color: ${player.color}">${player.name}${player.isAI ? ' <span class="ai-chip">AI</span>' : ''}</span>
                     <span class="player-panel-vp">${player.vp} <span style="font-size:10px;font-weight:400;color:var(--text-muted)">VP</span></span>
                 </div>
                 <div class="player-panel-stats">
@@ -168,10 +159,12 @@ class UIManager {
                 const city = CITIES[card.location];
                 const regionColor = city ? REGION_COLORS[city.region]?.fill : '#4a4a4a';
 
-                // Apply region color as background tint so cards are visually distinct by region
+                // Apply region color as background tint so cards are visually distinct by
+                // region, matching the same region tint used on the board itself.
                 if (regionColor) {
                     cardEl.style.borderColor = regionColor;
                     cardEl.style.boxShadow = `0 0 6px ${regionColor}55`;
+                    cardEl.style.setProperty('--region-tint', `${regionColor}30`);
                 }
 
                 cardEl.innerHTML = `
@@ -182,7 +175,8 @@ class UIManager {
             } else if (card.type === CARD_TYPES.INDUSTRY) {
                 cardEl.classList.add('industry-card');
                 const display = INDUSTRY_DISPLAY[card.industryType];
-                const svgIcon = CARD_SVG_ICONS[card.industryType] || '';
+                const svgIcon = IndustryIcons.renderMarkup(card.industryType, 30, 'full');
+                cardEl.style.setProperty('--industry-ribbon-color', display.color);
                 cardEl.innerHTML = `
                     <div class="card-type">Industry</div>
                     ${svgIcon || `<div class="card-icon">${display.icon}</div>`}
@@ -278,9 +272,13 @@ class UIManager {
 
             let tilesHtml = '';
             const allTiles = this.state.currentPlayer.industryTiles[type];
+            const iconMarkup = IndustryIcons.renderMarkup(type, 12, 'full');
             allTiles.forEach(tile => {
                 const cls = tile.used ? 'mat-tile used' : 'mat-tile available';
-                tilesHtml += `<div class="${cls}" data-type="${type}" title="${display.name} Lv${tile.level} - Cost: £${tile.cost}">${tile.level}</div>`;
+                tilesHtml += `<div class="${cls}" data-type="${type}" title="${display.name} Lv${tile.level} - Cost: £${tile.cost}">
+                    <div class="mat-tile-icon">${iconMarkup}</div>
+                    <div class="mat-tile-level">${tile.level}</div>
+                </div>`;
             });
 
             div.innerHTML = `
@@ -437,9 +435,11 @@ class UIManager {
     showTurnTransition(player) {
         const overlay = document.getElementById('turn-transition');
         const nameEl = document.getElementById('turn-transition-name');
+        const subtitleEl = document.querySelector('.turn-transition-subtitle');
 
         nameEl.textContent = player.name;
         nameEl.style.color = player.color;
+        if (subtitleEl) subtitleEl.textContent = player.isAI ? 'AI Turn' : 'Your Turn';
 
         overlay.classList.remove('hidden', 'fade-out');
 
@@ -458,6 +458,7 @@ class UIManager {
     // ========================================================================
 
     onCardClicked(index) {
+        if (this.state.currentPlayer.isAI) return;
         if (this.selectedCard === index) {
             this.selectedCard = null;
         } else {
@@ -476,6 +477,7 @@ class UIManager {
     // ========================================================================
 
     onActionSelected(action) {
+        if (this.state.currentPlayer.isAI) return;
         if (this.selectedAction === action) {
             this.cancelAction();
             return;
@@ -965,11 +967,17 @@ class UIManager {
             this.addLogEntry(null, 'Canal Era Scoring', 'era');
             const scores = this.state.endCanalEra();
             this.addLogEntry(null, 'Rail Era', 'era');
+            this.refresh();
             this.showScoring('Canal Era Complete', scores);
+            // runAITurnLoop() resumes from the scoring modal's Continue button
+            // (see showScoring) — never auto-continue while it's blocking the screen.
+            return;
         } else if (turnResult === 'endGame') {
             this.addLogEntry(null, 'Final Scoring', 'era');
             const scores = this.state.endGame();
+            this.refresh();
             this.showGameOver(scores);
+            return;
         } else {
             // Check if player changed - show transition
             const newPlayerId = this.state.currentPlayerId;
@@ -979,7 +987,43 @@ class UIManager {
             }
         }
 
+        this.previousPlayerId = previousPlayerId;
         this.refresh();
+        this.runAITurnLoop();
+    }
+
+    // ========================================================================
+    // AI Turn Loop
+    // ========================================================================
+
+    runAITurnLoop() {
+        if (this.state.gameOver) return;
+        const player = this.state.currentPlayer;
+        if (!player.isAI) {
+            this.setAIOverlay(false);
+            return;
+        }
+        this.setAIOverlay(true);
+        const delay = this.state.currentPlayerId !== this.previousPlayerId ? 1600 : 800;
+        setTimeout(() => this.executeOneAITurn(), delay);
+    }
+
+    executeOneAITurn() {
+        if (this.state.gameOver) return;
+        const playerId = this.state.currentPlayerId;
+        const player = this.state.players[playerId];
+        if (!player.isAI) return; // safety guard against stale timers
+
+        const decision = AIPlayer.chooseAction(this.state, this.logic, playerId, player.aiDifficulty);
+
+        this.selectedAction = decision.action;
+        this.pendingData = decision.pendingData;
+        this.selectedCard = decision.cardIndex;
+        this.processActionStep();
+    }
+
+    setAIOverlay(active) {
+        document.getElementById('game-screen').classList.toggle('ai-turn-active', active);
     }
 
     // ========================================================================
@@ -987,6 +1031,7 @@ class UIManager {
     // ========================================================================
 
     onBoardClick(e) {
+        if (this.state.currentPlayer.isAI) return;
         const target = e.target.closest('.industry-slot, .connection-line, .brewery-farm, .merchant-group');
         if (!target) return;
 
@@ -1085,10 +1130,18 @@ class UIManager {
         document.getElementById('scoring-details').innerHTML = html;
         overlay.classList.remove('hidden');
 
-        document.getElementById('scoring-continue-btn').onclick = () => {
+        const continueFromScoring = () => {
             overlay.classList.add('hidden');
             this.refresh();
+            this.runAITurnLoop(); // only safe to resume AFTER the modal is dismissed
         };
+        document.getElementById('scoring-continue-btn').onclick = continueFromScoring;
+
+        // In an all-AI (spectator) game there's no human to click Continue —
+        // auto-dismiss after a brief pause so the game keeps progressing.
+        if (this.state.players.every(p => p.isAI)) {
+            setTimeout(continueFromScoring, 2500);
+        }
     }
 
     showGameOver(scores) {
