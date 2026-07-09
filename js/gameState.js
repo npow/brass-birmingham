@@ -23,8 +23,14 @@ class GameState {
             this.players.push(this.createPlayer(i, playerNames[i], !!aiConfig.isAI, aiConfig.difficulty || 'normal'));
         }
 
-        // Turn order starts as player order
+        // Initial turn order is random (rulebook: character tiles are shuffled
+        // onto the Turn Order Track during setup)
         this.turnOrder = this.players.map((_, i) => i);
+        this.shuffleArray(this.turnOrder);
+
+        // Events generated during end-of-round upkeep (shortfall tile sales
+        // etc.), for the UI layer to surface in the game log.
+        this.lastRoundEvents = [];
 
         // Board state
         this.boardIndustries = {}; // cityId_slotIndex -> { playerId, type, level, tileData, flipped, resourceCubes }
@@ -36,7 +42,7 @@ class GameState {
         this.ironMarket = IRON_MARKET_INITIAL;
 
         // Merchant state
-        this.merchantTiles = []; // { location, buys, hasBeer, bonusClaimed }
+        this.merchantTiles = []; // { location, buys: 'any'|'blank'|industryType, hasBeer }
         this.initMerchants();
 
         // Card draw deck and discard
@@ -45,8 +51,11 @@ class GameState {
         this.wildIndustryPile = 4; // 4 wild industry cards
         this.initDeck();
 
-        // Deal cards
+        // Deal cards, then seed each player's discard pile with 1 card
+        // (rulebook: Player Area Setup step 9) — this makes the era last
+        // exactly 10/9/8 rounds at 2/3/4 players.
         this.dealCards();
+        this.seedDiscardPiles();
 
         // Selected card for current action
         this.selectedCardIndex = null;
@@ -76,8 +85,8 @@ class GameState {
             color: PLAYER_COLORS[index],
             bgColor: PLAYER_BG_COLORS[index],
             colorName: PLAYER_NAMES[index],
-            money: INITIAL_MONEY_BY_PLAYERS[this.numPlayers] ?? INITIAL_MONEY,
-            income: INITIAL_INCOME,
+            money: INITIAL_MONEY,
+            incomeSpace: INITIAL_INCOME_SPACE, // progress track space (level 0)
             vp: 0,
             hand: [],
             industryTiles: industryTiles,
@@ -90,23 +99,32 @@ class GameState {
     }
 
     initMerchants() {
-        const tiles = [];
-        // Add merchant tiles based on player count
+        // Gather the tiles marked for this player count, shuffle them, and
+        // deal one to each active merchant slot (rulebook: Board Setup step 5).
+        const mix = [];
         for (let p = 2; p <= this.numPlayers; p++) {
-            if (MERCHANT_TILES[p]) {
-                for (const tile of MERCHANT_TILES[p]) {
-                    tiles.push({
-                        location: tile.location,
-                        buys: tile.buys,
-                        hasBeer: true,
-                        bonusClaimed: false,
-                    });
-                }
+            if (MERCHANT_TILE_MIX[p]) mix.push(...MERCHANT_TILE_MIX[p]);
+        }
+        this.shuffleArray(mix);
+
+        const tiles = [];
+        for (const [merchId, merch] of Object.entries(MERCHANTS)) {
+            if (merch.minPlayers > this.numPlayers) continue;
+            for (let s = 0; s < merch.slots; s++) {
+                const buys = mix.pop();
+                tiles.push({
+                    location: merchId,
+                    buys, // 'any' | 'blank' | industry type
+                    hasBeer: buys !== 'blank', // no beer beside blank tiles
+                });
             }
         }
-        // Shuffle merchant tiles
-        this.shuffleArray(tiles);
         this.merchantTiles = tiles;
+    }
+
+    // Does this merchant tile accept the given (sellable) industry type?
+    merchantTileAccepts(mt, industryType) {
+        return mt.buys === 'any' || mt.buys === industryType;
     }
 
     initDeck() {
@@ -125,15 +143,24 @@ class GameState {
             }
         }
 
-        // Industry cards
+        // Industry cards. Every industry card carries an industryTypes array;
+        // the physical deck includes dual "Cotton Mill or Manufacturer" cards
+        // that can be built as either industry.
         for (const [industryType, count] of Object.entries(deckData.industries)) {
             for (let i = 0; i < count; i++) {
                 deck.push({
                     type: CARD_TYPES.INDUSTRY,
-                    industryType: industryType,
+                    industryTypes: [industryType],
                     name: INDUSTRY_DISPLAY[industryType].name,
                 });
             }
+        }
+        for (let i = 0; i < (deckData.dualCottonManufacturer || 0); i++) {
+            deck.push({
+                type: CARD_TYPES.INDUSTRY,
+                industryTypes: [INDUSTRY_TYPES.COTTON_MILL, INDUSTRY_TYPES.MANUFACTURER],
+                name: 'Cotton Mill / Manufacturer',
+            });
         }
 
         this.shuffleArray(deck);
@@ -145,6 +172,14 @@ class GameState {
             while (player.hand.length < HAND_SIZE && this.drawDeck.length > 0) {
                 player.hand.push(this.drawDeck.pop());
             }
+        }
+    }
+
+    // Each player places 1 card from the deck face down as their discard pile
+    // at setup and after the era transition reshuffle.
+    seedDiscardPiles() {
+        for (const player of this.players) {
+            if (this.drawDeck.length > 0) this.drawDeck.pop();
         }
     }
 
@@ -187,14 +222,30 @@ class GameState {
     // ========================================================================
     // Income track helpers
     // ========================================================================
+    // The income marker sits on a Progress Track SPACE (0-99); the income
+    // LEVEL (-10..30) is derived from the space. Tile flips and bonuses
+    // advance the marker by spaces; loans drop it by levels.
 
-    adjustIncome(playerId, amount) {
-        const player = this.players[playerId];
-        player.income = Math.min(MAX_INCOME, Math.max(MIN_INCOME, player.income + amount));
+    getIncomeLevel(playerId) {
+        return incomeLevelFromSpace(this.players[playerId].incomeSpace);
     }
 
-    getIncomeAmount(income) {
-        return income; // Income level = money earned per round
+    advanceIncomeSpaces(playerId, spaces) {
+        const player = this.players[playerId];
+        player.incomeSpace = Math.min(MAX_INCOME_SPACE, Math.max(0, player.incomeSpace + spaces));
+    }
+
+    canTakeLoan(playerId) {
+        // A loan may not take the income level below -10
+        return this.getIncomeLevel(playerId) - LOAN_INCOME_PENALTY >= MIN_INCOME;
+    }
+
+    applyLoanIncomeDrop(playerId) {
+        // Drop 3 income LEVELS, placing the marker on the highest space
+        // within the lower level.
+        const player = this.players[playerId];
+        const newLevel = Math.max(MIN_INCOME, this.getIncomeLevel(playerId) - LOAN_INCOME_PENALTY);
+        player.incomeSpace = incomeHighestSpaceOfLevel(newLevel);
     }
 
     // ========================================================================
@@ -202,54 +253,54 @@ class GameState {
     // ========================================================================
 
     getCoalPrice() {
-        if (this.coalMarket <= 0) return Infinity;
-        // Price is based on which space the next coal would come from
+        // When the market is empty, coal can still be bought for £8 each
+        if (this.coalMarket <= 0) return COAL_EMPTY_PRICE;
         const spaceIndex = COAL_MARKET_PRICES.length - this.coalMarket;
-        return COAL_MARKET_PRICES[spaceIndex] || Infinity;
+        return COAL_MARKET_PRICES[spaceIndex] ?? COAL_EMPTY_PRICE;
     }
 
     getIronPrice() {
-        if (this.ironMarket <= 0) return Infinity;
+        // When the market is empty, iron can still be bought for £6 each
+        if (this.ironMarket <= 0) return IRON_EMPTY_PRICE;
         const spaceIndex = IRON_MARKET_PRICES.length - this.ironMarket;
-        return IRON_MARKET_PRICES[spaceIndex] || Infinity;
+        return IRON_MARKET_PRICES[spaceIndex] ?? IRON_EMPTY_PRICE;
     }
 
-    buyCoalFromMarket(count) {
-        let totalCost = 0;
-        for (let i = 0; i < count; i++) {
-            if (this.coalMarket <= 0) return { cost: Infinity, success: false };
-            const price = this.getCoalPrice();
-            totalCost += price;
-            this.coalMarket--;
-        }
-        return { cost: totalCost, success: true };
+    // Consume one cube of market coal/iron. The market may be empty — cubes
+    // are then bought from the General Supply at the flat empty price.
+    takeMarketCoal() {
+        if (this.coalMarket > 0) this.coalMarket--;
     }
 
-    buyIronFromMarket(count) {
-        let totalCost = 0;
-        for (let i = 0; i < count; i++) {
-            if (this.ironMarket <= 0) return { cost: Infinity, success: false };
-            const price = this.getIronPrice();
-            totalCost += price;
-            this.ironMarket--;
-        }
-        return { cost: totalCost, success: true };
+    takeMarketIron() {
+        if (this.ironMarket > 0) this.ironMarket--;
     }
 
-    sellCoalToMarket(count) {
-        for (let i = 0; i < count; i++) {
-            if (this.coalMarket < COAL_MARKET_PRICES.length) {
-                this.coalMarket++;
-            }
-        }
-    }
+    // When a Coal Mine / Iron Works is built, as many cubes as possible are
+    // immediately moved from the tile to empty spaces in its market, filling
+    // the most expensive spaces first; the builder collects the price of each
+    // space filled. If the tile is emptied it flips at once.
+    // (Caller is responsible for the coal mine's merchant-connection check.)
+    autoSellToMarket(key, tile) {
+        const isCoal = tile.type === INDUSTRY_TYPES.COAL_MINE;
+        const prices = isCoal ? COAL_MARKET_PRICES : IRON_MARKET_PRICES;
+        let moneyGained = 0;
+        let cubesMoved = 0;
 
-    sellIronToMarket(count) {
-        for (let i = 0; i < count; i++) {
-            if (this.ironMarket < IRON_MARKET_PRICES.length) {
-                this.ironMarket++;
-            }
+        while (tile.resourceCubes > 0) {
+            const cubesInMarket = isCoal ? this.coalMarket : this.ironMarket;
+            if (cubesInMarket >= prices.length) break; // market full
+            // Most expensive empty space is just below the cheapest filled cube
+            moneyGained += prices[prices.length - cubesInMarket - 1];
+            if (isCoal) this.coalMarket++; else this.ironMarket++;
+            tile.resourceCubes--;
+            cubesMoved++;
         }
+
+        if (cubesMoved > 0 && tile.resourceCubes === 0) {
+            this.flipTile(key, tile);
+        }
+        return { moneyGained, cubesMoved, flipped: tile.flipped };
     }
 
     // ========================================================================
@@ -341,7 +392,8 @@ class GameState {
             if (visited.has(loc)) continue;
             visited.add(loc);
 
-            // Check for coal mines at this location
+            // Check for coal mines at this location (one entry per cube, so
+            // callers needing several coal can draw repeatedly from one mine)
             if (isCity(loc)) {
                 const city = CITIES[loc];
                 for (let i = 0; i < city.slots.length; i++) {
@@ -349,7 +401,9 @@ class GameState {
                     const tile = this.boardIndustries[key];
                     if (tile && tile.type === INDUSTRY_TYPES.COAL_MINE &&
                         !tile.flipped && tile.resourceCubes > 0) {
-                        sources.push({ type: 'mine', key, distance, free: true });
+                        for (let c = 0; c < tile.resourceCubes; c++) {
+                            sources.push({ type: 'mine', key, distance, free: true });
+                        }
                     }
                 }
             }
@@ -376,13 +430,23 @@ class GameState {
             }
         }
 
-        // Sort by distance (nearest first)
+        // Sort by distance (nearest first) — coal MUST come from the closest
+        // connected mine before farther mines or the market
         sources.sort((a, b) => a.distance - b.distance);
 
-        // Add one market entry per available coal cube so callers needing 2+ coal see enough entries
-        for (let i = 0; i < this.coalMarket; i++) {
-            const spaceIndex = COAL_MARKET_PRICES.length - this.coalMarket + i;
-            sources.push({ type: 'market', price: COAL_MARKET_PRICES[spaceIndex] || Infinity, free: false });
+        // Market coal requires a connection to a merchant location. The
+        // `visited` set from the BFS above is exactly the connected set.
+        const merchantConnected = [...visited].some(loc => isMerchantLocation(loc));
+        if (merchantConnected) {
+            // One entry per market cube (cheapest first)...
+            for (let i = 0; i < this.coalMarket; i++) {
+                const spaceIndex = COAL_MARKET_PRICES.length - this.coalMarket + i;
+                sources.push({ type: 'market', price: COAL_MARKET_PRICES[spaceIndex] ?? COAL_EMPTY_PRICE, free: false });
+            }
+            // ...then unlimited General Supply coal at £8 once the market is empty
+            for (let i = 0; i < 6; i++) {
+                sources.push({ type: 'market', price: COAL_EMPTY_PRICE, free: false });
+            }
         }
 
         return sources;
@@ -403,17 +467,26 @@ class GameState {
             }
         }
 
-        // Add one market entry per available iron cube so callers needing 2+ iron see enough entries
+        // One market entry per cube (cheapest first), then unlimited General
+        // Supply iron at £6. No connection is ever required for iron.
         for (let i = 0; i < this.ironMarket; i++) {
             const spaceIndex = IRON_MARKET_PRICES.length - this.ironMarket + i;
-            sources.push({ type: 'market', price: IRON_MARKET_PRICES[spaceIndex] || Infinity, free: false });
+            sources.push({ type: 'market', price: IRON_MARKET_PRICES[spaceIndex] ?? IRON_EMPTY_PRICE, free: false });
+        }
+        for (let i = 0; i < 6; i++) {
+            sources.push({ type: 'market', price: IRON_EMPTY_PRICE, free: false });
         }
 
         return sources;
     }
 
-    // Find beer source for selling
-    findBeerSources(locationId, playerId) {
+    // Find beer sources for a location where beer is required.
+    // - Own unflipped breweries: usable anywhere, no connection needed.
+    // - Opponents' unflipped breweries: must be connected to locationId.
+    // - Merchant beer: ONLY usable when selling to that merchant. Callers pass
+    //   allowedMerchantIndices (indices into merchantTiles) for the merchant(s)
+    //   the sale is going to; pass nothing for non-sell uses (e.g. rail links).
+    findBeerSources(locationId, playerId, allowedMerchantIndices = null) {
         const sources = [];
 
         // Own breweries anywhere (no connection needed)
@@ -465,12 +538,11 @@ class GameState {
             }
         }
 
-        // Merchant beer
-        for (let i = 0; i < this.merchantTiles.length; i++) {
-            const mt = this.merchantTiles[i];
-            if (mt.hasBeer) {
-                // Check if merchant location is connected
-                if (connected.has(mt.location)) {
+        // Merchant beer — only from the merchant(s) this sale is going to
+        if (allowedMerchantIndices) {
+            for (const i of allowedMerchantIndices) {
+                const mt = this.merchantTiles[i];
+                if (mt && mt.hasBeer && connected.has(mt.location)) {
                     sources.push({ type: 'merchant', index: i });
                 }
             }
@@ -501,8 +573,8 @@ class GameState {
     flipTile(key, tile) {
         if (tile.flipped) return;
         tile.flipped = true;
-        // Increase income
-        this.adjustIncome(tile.playerId, tile.tileData.income);
+        // Advance income marker by the tile's income icon count (SPACES)
+        this.advanceIncomeSpaces(tile.playerId, tile.tileData.income);
     }
 
     // ========================================================================
@@ -576,15 +648,21 @@ class GameState {
     }
 
     endRound() {
-        // Income phase
-        for (const player of this.players) {
-            const incomeAmount = this.getIncomeAmount(player.income);
-            player.money += incomeAmount;
-            if (player.money < 0) {
-                // Player is in debt - handle debt (simplified: just set to 0, lose VP)
-                const debt = Math.abs(player.money);
-                player.vp = Math.max(0, player.vp - debt);
-                player.money = 0;
+        this.lastRoundEvents = [];
+
+        // The era ends following the round in which all cards are played
+        const allHandsEmpty = this.players.every(p => p.hand.length === 0);
+        const eraEnding = allHandsEmpty && this.drawDeck.length === 0;
+        const isFinalRoundOfGame = eraEnding && this.era === ERA.RAIL;
+
+        // Income phase — not collected at the end of the final round of the game
+        if (!isFinalRoundOfGame) {
+            for (const player of this.players) {
+                const level = incomeLevelFromSpace(player.incomeSpace);
+                player.money += level;
+                if (player.money < 0) {
+                    this.resolveShortfall(player);
+                }
             }
         }
 
@@ -606,17 +684,53 @@ class GameState {
             this.actionsPerTurn = ACTIONS_PER_TURN;
         }
 
-        // Check if era ends (no cards left in any player's hand and draw deck is empty)
-        const allHandsEmpty = this.players.every(p => p.hand.length === 0);
-        if (allHandsEmpty && this.drawDeck.length === 0) {
-            if (this.era === ERA.CANAL) {
-                return 'endCanalEra';
-            } else {
-                return 'endGame';
-            }
+        if (eraEnding) {
+            return this.era === ERA.CANAL ? 'endCanalEra' : 'endGame';
         }
 
         return 'continue';
+    }
+
+    // A player who cannot pay negative income must sell industry tiles from
+    // the board for half their cost (rounded down), stopping as soon as the
+    // shortfall is covered; if that still isn't enough, they lose 1 VP per £1.
+    resolveShortfall(player) {
+        const candidates = [];
+        for (const [key, tile] of Object.entries(this.boardIndustries)) {
+            if (tile.playerId === player.id) candidates.push({ key, tile, farm: false });
+        }
+        for (const [farmId, tile] of Object.entries(this.breweryFarmTiles)) {
+            if (tile && tile.playerId === player.id) candidates.push({ key: farmId, tile, farm: true });
+        }
+        // Auto-choice: give up unflipped low-VP tiles before flipped ones
+        candidates.sort((a, b) =>
+            (Number(a.tile.flipped) - Number(b.tile.flipped)) ||
+            (a.tile.tileData.vp - b.tile.tileData.vp));
+
+        for (const cand of candidates) {
+            if (player.money >= 0) break;
+            const refund = Math.floor(cand.tile.tileData.cost / 2);
+            if (cand.farm) delete this.breweryFarmTiles[cand.key];
+            else delete this.boardIndustries[cand.key];
+            player.money += refund;
+            this.lastRoundEvents.push({
+                type: 'shortfall-sale',
+                playerId: player.id,
+                message: `sold ${INDUSTRY_DISPLAY[cand.tile.type].name} Lv${cand.tile.tileData.level} for £${refund} to cover income shortfall`,
+            });
+        }
+
+        if (player.money < 0) {
+            const deficit = -player.money;
+            const vpLoss = Math.min(player.vp, deficit);
+            player.vp -= vpLoss;
+            player.money = 0;
+            this.lastRoundEvents.push({
+                type: 'shortfall-vp',
+                playerId: player.id,
+                message: `could not pay income shortfall — lost ${vpLoss} VP`,
+            });
+        }
     }
 
     endCanalEra() {
@@ -646,17 +760,18 @@ class GameState {
             }
         }
 
-        // Transition to rail era
+        // Transition to rail era. The 1-action restriction applies only to
+        // the first round of the CANAL era — every Rail Era round is 2 actions.
         this.era = ERA.RAIL;
         this.round = 1;
-        this.isFirstRound = true;
-        this.actionsPerTurn = FIRST_ROUND_ACTIONS;
+        this.isFirstRound = false;
+        this.actionsPerTurn = ACTIONS_PER_TURN;
         this.currentPlayerIndex = 0;
         this.actionsThisTurn = 0;
 
-        // Restock merchant beer
+        // Reset merchant beer (blank tiles never hold beer)
         for (const mt of this.merchantTiles) {
-            mt.hasBeer = true;
+            mt.hasBeer = mt.buys !== 'blank';
         }
 
         // Return any wild cards from player hands before clearing
@@ -673,9 +788,10 @@ class GameState {
             player.hand = [];
         }
 
-        // Reshuffle all cards into draw deck
+        // Reshuffle all cards into draw deck, deal new hands, seed discards
         this.initDeck();
         this.dealCards();
+        this.seedDiscardPiles();
 
         return scores;
     }
@@ -703,26 +819,27 @@ class GameState {
             const conn = CONNECTIONS.find(c => c.id === connId);
             if (!conn) continue;
 
+            // Each link scores 1 VP per link icon in adjacent locations.
+            // Icons come from built industry tiles (flipped OR unflipped —
+            // both faces show them) and from merchant locations (2 each).
             let linkValue = 0;
-            // Score both city endpoints
             for (const cityId of conn.cities) {
                 if (isCity(cityId)) {
                     const city = CITIES[cityId];
                     for (let i = 0; i < city.slots.length; i++) {
                         const key = `${cityId}_${i}`;
                         const tile = this.boardIndustries[key];
-                        if (tile && tile.flipped) {
+                        if (tile) {
                             linkValue += tile.tileData.linkVP;
                         }
                     }
                 }
                 if (isMerchantLocation(cityId)) {
-                    // Merchant locations count as 2 VP per link connected
                     linkValue += 2;
                 }
                 if (isBreweryFarm(cityId)) {
                     const tile = this.breweryFarmTiles[cityId];
-                    if (tile && tile.flipped) {
+                    if (tile) {
                         linkValue += tile.tileData.linkVP;
                     }
                 }
@@ -730,7 +847,7 @@ class GameState {
             // Also score brewery farms that this link passes through (e.g. kidderminster-worcester via southern)
             if (conn.viaBrewery) {
                 const tile = this.breweryFarmTiles[conn.viaBrewery];
-                if (tile && tile.flipped) {
+                if (tile) {
                     linkValue += tile.tileData.linkVP;
                 }
             }
@@ -844,7 +961,8 @@ class GameState {
                 id: p.id,
                 name: p.name,
                 money: p.money,
-                income: p.income,
+                incomeLevel: incomeLevelFromSpace(p.incomeSpace),
+                incomeSpace: p.incomeSpace,
                 vp: p.vp,
                 handSize: p.hand.length,
                 linksRemaining: p.linksRemaining,

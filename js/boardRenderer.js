@@ -687,15 +687,15 @@ class BoardRenderer {
                     const matchingTiles = this.state.merchantTiles.filter(t => t.location === merchId);
                     if (matchingTiles[i]) {
                         const mt = matchingTiles[i];
+                        const isBlank = mt.buys === 'blank';
                         const buyText = this.createElement('text', {
                             x: 0, y: 13 + i * 14,
                             'text-anchor': 'middle',
                             'font-size': '6',
-                            fill: mt.bonusClaimed ? '#555' : '#b87333',
+                            fill: isBlank ? '#555' : '#b87333',
                         });
-                        buyText.textContent = mt.buys ?
-                            INDUSTRY_DISPLAY[mt.buys].shortName :
-                            'Any';
+                        buyText.textContent = isBlank ? '—' :
+                            (mt.buys === 'any' ? 'Any' : INDUSTRY_DISPLAY[mt.buys].shortName);
                         g.appendChild(buyText);
 
                         if (mt.hasBeer) {
@@ -892,6 +892,12 @@ class BoardRenderer {
     highlightSlots(validSlots) {
         this.clearHighlights();
         for (const slot of validSlots) {
+            // Farm breweries are standalone board locations, not city slots
+            if (isBreweryFarm(slot.cityId)) {
+                const farmEl = this.svg.querySelector(`.brewery-farm[data-farm="${slot.cityId}"]`);
+                if (farmEl) farmEl.classList.add('highlight-slot');
+                continue;
+            }
             const el = this.svg.querySelector(
                 `.industry-slot[data-city="${slot.cityId}"][data-slot="${slot.slotIndex}"]`
             );

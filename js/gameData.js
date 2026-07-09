@@ -383,24 +383,14 @@ const MERCHANTS = {
     },
 };
 
-// Merchant tiles that get placed: what goods each merchant buys
-// null = buys any sellable good; otherwise specific type
-const MERCHANT_TILES = {
-    2: [ // For 2-player game (5 tiles for Shrewsbury, Oxford, Gloucester)
-        { location: 'shrewsbury', buys: null }, // any
-        { location: 'oxford',     buys: INDUSTRY_TYPES.MANUFACTURER },
-        { location: 'oxford',     buys: INDUSTRY_TYPES.COTTON_MILL },
-        { location: 'gloucester', buys: INDUSTRY_TYPES.COTTON_MILL },
-        { location: 'gloucester', buys: INDUSTRY_TYPES.MANUFACTURER },
-    ],
-    3: [ // Additional tiles for 3-player (Warrington)
-        { location: 'warrington', buys: INDUSTRY_TYPES.POTTERY },
-        { location: 'warrington', buys: null },
-    ],
-    4: [ // Additional tiles for 4-player (Nottingham)
-        { location: 'nottingham', buys: INDUSTRY_TYPES.COTTON_MILL },
-        { location: 'nottingham', buys: INDUSTRY_TYPES.MANUFACTURER },
-    ],
+// Merchant tiles, marked by minimum player count as on the physical tiles.
+// Per the rulebook, the active tiles are shuffled and dealt randomly to the
+// merchant slots in play. buys: 'any' = any sellable good; 'blank' = buys
+// nothing (no beer barrel is placed beside blank tiles).
+const MERCHANT_TILE_MIX = {
+    2: ['blank', 'blank', 'any', INDUSTRY_TYPES.COTTON_MILL, INDUSTRY_TYPES.MANUFACTURER],
+    3: [INDUSTRY_TYPES.POTTERY, INDUSTRY_TYPES.MANUFACTURER],
+    4: ['any', INDUSTRY_TYPES.COTTON_MILL],
 };
 
 // ============================================================================
@@ -484,11 +474,11 @@ const CARD_DECK = {
         industries: {
             [INDUSTRY_TYPES.IRON_WORKS]: 4,
             [INDUSTRY_TYPES.COAL_MINE]: 2,
-            [INDUSTRY_TYPES.COTTON_MILL]: 3, // cotton/mfg combined = 6, split
-            [INDUSTRY_TYPES.MANUFACTURER]: 3,
             [INDUSTRY_TYPES.POTTERY]: 2,
             [INDUSTRY_TYPES.BREWERY]: 5,
-        }
+        },
+        // Dual "Cotton Mill or Manufacturer" cards (buildable as either)
+        dualCottonManufacturer: 6,
     },
     // 4-player has full deck
     4: {
@@ -502,49 +492,67 @@ const CARD_DECK = {
         industries: {
             [INDUSTRY_TYPES.IRON_WORKS]: 4,
             [INDUSTRY_TYPES.COAL_MINE]: 3,
-            [INDUSTRY_TYPES.COTTON_MILL]: 4, // cotton/mfg combined = 8, split
-            [INDUSTRY_TYPES.MANUFACTURER]: 4,
             [INDUSTRY_TYPES.POTTERY]: 3,
             [INDUSTRY_TYPES.BREWERY]: 5,
-        }
+        },
+        // Dual "Cotton Mill or Manufacturer" cards (buildable as either)
+        dualCottonManufacturer: 8,
     }
 };
 
 // ============================================================================
 // Coal and Iron Market
 // ============================================================================
-// Coal Market: 14 spaces, prices from cheapest to most expensive
-// Initially 13 cubes (first space empty)
-const COAL_MARKET_PRICES = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 7, 8, 8];
-const COAL_MARKET_INITIAL = 13; // cubes at start (spaces 1-13 filled, space 0 empty)
+// Coal Market: 14 spaces (two per price £1-£7), initially 13 cubes
+// (one £1 space open). When empty, coal can still be bought for £8 each
+// (requires a merchant connection, as does all market coal).
+const COAL_MARKET_PRICES = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7];
+const COAL_MARKET_INITIAL = 13;
+const COAL_EMPTY_PRICE = 8;
 
-// Iron Market: 10 spaces
-// Initially 8 cubes (first 2 spaces empty)
-const IRON_MARKET_PRICES = [1, 1, 2, 2, 3, 3, 4, 5, 6, 6];
-const IRON_MARKET_INITIAL = 8; // cubes at start (spaces 2-9 filled, spaces 0-1 empty)
+// Iron Market: 10 spaces (two per price £1-£5), initially 8 cubes
+// (both £1 spaces open). When empty, iron can still be bought for £6 each.
+const IRON_MARKET_PRICES = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5];
+const IRON_MARKET_INITIAL = 8;
+const IRON_EMPTY_PRICE = 6;
 
 // ============================================================================
-// Income Track
+// Income Track (Progress Track spaces 0-99)
 // ============================================================================
-// Income ranges from -10 to 30
-// -10 to 0: 1 track space per level
-// 1 to 10: 2 track spaces per level
-// 11 to 20: 3 track spaces per level
-// 21 to 30: 4 track spaces per level
-// Total track spaces: 11 + 20 + 30 + 40 = 101
+// Income increases advance the marker by SPACES; the income LEVEL is the
+// coin value printed beside the marker's current space:
+//   spaces  0-10  -> levels -10..0   (1 space per level)
+//   spaces 11-30  -> levels   1..10  (2 spaces per level)
+//   spaces 31-60  -> levels  11..20  (3 spaces per level)
+//   spaces 61-96  -> levels  21..29  (4 spaces per level)
+//   spaces 97-99  -> level  30
 
-// Starting money varies by player count per official Brass: Birmingham rules
-const INITIAL_MONEY_BY_PLAYERS = { 2: 17, 3: 14, 4: 10 };
-const INITIAL_MONEY = 17; // fallback (2-player default)
-const INITIAL_INCOME = 10;
+function incomeLevelFromSpace(space) {
+    if (space <= 10) return space - 10;
+    if (space <= 30) return Math.ceil((space - 10) / 2);
+    if (space <= 60) return 10 + Math.ceil((space - 30) / 3);
+    if (space <= 96) return 20 + Math.ceil((space - 60) / 4);
+    return 30;
+}
+
+// Highest-numbered space within a level (used when loans drop the marker).
+function incomeHighestSpaceOfLevel(level) {
+    if (level <= 0) return level + 10;
+    if (level <= 10) return 10 + 2 * level;
+    if (level <= 20) return 30 + 3 * (level - 10);
+    if (level <= 29) return 60 + 4 * (level - 20);
+    return 99;
+}
+
+// Every player starts with £17 regardless of player count (rulebook: Player
+// Area Setup step 2), with the income marker on space 10 (income level 0).
+const INITIAL_MONEY = 17;
+const INITIAL_INCOME_SPACE = 10;
 const LOAN_AMOUNT = 30;
-const LOAN_INCOME_PENALTY = 3;
+const LOAN_INCOME_PENALTY = 3; // income LEVELS, not spaces
 const MAX_INCOME = 30;
-const MIN_INCOME = -10;
-
-// Spending money: the amount you pay per income level on the income track
-// From income -10 to 0, pay 1 per level (e.g., income -10 means pay £10)
-// Income is the amount of money you receive/pay at the end of each round
+const MIN_INCOME = -10; // loans may not take the income level below -10
+const MAX_INCOME_SPACE = 99;
 
 // Canal link cost
 const CANAL_LINK_COST = 3;

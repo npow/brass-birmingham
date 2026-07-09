@@ -123,7 +123,7 @@ class UIManager {
                 </div>
                 <div class="player-panel-stats">
                     <span class="player-panel-stat" title="Money" style="color:#c9a84c">£${player.money}</span>
-                    <span class="player-panel-stat" title="Income">&#8679; ${player.income}</span>
+                    <span class="player-panel-stat" title="Income level">&#8679; ${this.state.getIncomeLevel(player.id)}</span>
                     <span class="player-panel-stat" title="Cards">${player.hand.length} cds</span>
                     <span class="player-panel-stat" title="Links">
                         ${this.state.era === ERA.CANAL ? player.linksRemaining.canal : player.linksRemaining.rail} lnk
@@ -174,13 +174,24 @@ class UIManager {
                 `;
             } else if (card.type === CARD_TYPES.INDUSTRY) {
                 cardEl.classList.add('industry-card');
-                const display = INDUSTRY_DISPLAY[card.industryType];
-                const svgIcon = IndustryIcons.renderMarkup(card.industryType, 30, 'full');
+                const isDual = card.industryTypes.length > 1;
+                const display = INDUSTRY_DISPLAY[card.industryTypes[0]];
                 cardEl.style.setProperty('--industry-ribbon-color', display.color);
+                let iconHtml;
+                if (isDual) {
+                    // Dual "Cotton Mill or Manufacturer" card — show both icons
+                    const icons = card.industryTypes
+                        .map(t => IndustryIcons.renderMarkup(t, 20, 'full') || INDUSTRY_DISPLAY[t].icon)
+                        .join('');
+                    iconHtml = `<div style="display:flex;justify-content:center;gap:2px;">${icons}</div>`;
+                } else {
+                    const svgIcon = IndustryIcons.renderMarkup(card.industryTypes[0], 30, 'full');
+                    iconHtml = svgIcon || `<div class="card-icon">${display.icon}</div>`;
+                }
                 cardEl.innerHTML = `
                     <div class="card-type">Industry</div>
-                    ${svgIcon || `<div class="card-icon">${display.icon}</div>`}
-                    <div class="card-name">${display.name}</div>
+                    ${iconHtml}
+                    <div class="card-name">${card.name}</div>
                 `;
             } else if (card.type === CARD_TYPES.WILD_LOCATION) {
                 cardEl.classList.add('wild-card');
@@ -567,7 +578,7 @@ class UIManager {
 
         let html = '<div class="choice-list">';
         for (const [cityId, cityTargets] of Object.entries(byCity)) {
-            const cityName = CITIES[cityId].name;
+            const cityName = CITIES[cityId]?.name || BREWERY_FARMS[cityId]?.name || cityId;
             for (const target of cityTargets) {
                 const display = INDUSTRY_DISPLAY[target.industryType];
                 html += `
@@ -640,7 +651,61 @@ class UIManager {
 
         document.querySelectorAll('#modal-body .choice-item').forEach(item => {
             item.addEventListener('click', () => {
-                this.pendingData = { connectionId: item.dataset.conn };
+                this.afterNetworkFirstSelection(item.dataset.conn);
+            });
+        });
+    }
+
+    // In the Rail Era a second link may be added (£15 total, +1 coal, +1 beer
+    // from a brewery). Offer the option after the first link is chosen.
+    afterNetworkFirstSelection(connectionId) {
+        const playerId = this.state.currentPlayerId;
+
+        if (this.state.era === ERA.RAIL) {
+            const seconds = this.logic.getValidSecondRailLinks(playerId, connectionId);
+            if (seconds.length > 0) {
+                this.showSecondRailModal(connectionId, seconds);
+                return;
+            }
+        }
+
+        this.pendingData = { connectionId };
+        this.renderer.clearHighlights();
+        this.closeModal();
+        this.actionStep = 1;
+        this.updatePhaseBar();
+        this.updateHand();
+    }
+
+    showSecondRailModal(firstConnId, seconds) {
+        const name = id => CITIES[id]?.name || MERCHANTS[id]?.name || id;
+
+        let html = '<p style="margin-bottom:12px;color:var(--text-secondary);font-size:13px;">' +
+            'Optionally build a second rail link — £15 total for both links, plus 1 coal per link and 1 beer from a brewery.</p>';
+        html += '<div class="choice-list">';
+        html += '<div class="choice-item" data-conn="none"><div class="choice-item-text"><div class="choice-item-name">Just one link</div><div class="choice-item-detail">£5 + 1 coal</div></div></div>';
+        for (const s of seconds) {
+            html += `
+                <div class="choice-item" data-conn="${s.connectionId}">
+                    <div class="choice-item-icon">#</div>
+                    <div class="choice-item-text">
+                        <div class="choice-item-name">${name(s.cities[0])} — ${name(s.cities[1])}</div>
+                        <div class="choice-item-detail">2nd link · +1 beer</div>
+                    </div>
+                    <div class="choice-item-cost">£15 total${s.coalCost > 0 ? ` + £${s.coalCost} coal` : ''}</div>
+                </div>
+            `;
+        }
+        html += '</div>';
+
+        this.showModal('Second Rail Link?', html, () => {});
+
+        document.querySelectorAll('#modal-body .choice-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const conn2 = item.dataset.conn;
+                this.pendingData = { connectionId: firstConnId };
+                if (conn2 !== 'none') this.pendingData.connectionId2 = conn2;
+                this.renderer.clearHighlights();
                 this.closeModal();
                 this.actionStep = 1;
                 this.updatePhaseBar();
@@ -752,11 +817,12 @@ class UIManager {
             return;
         }
 
-        let html = '<p style="margin-bottom:12px;color:var(--text-secondary);font-size:13px;">Select industries to sell (you may sell multiple in one action).</p>';
+        let html = '<p style="margin-bottom:12px;color:var(--text-secondary);font-size:13px;">Select industries to sell (you may sell multiple in one action). Consuming a merchant\'s beer barrel grants that merchant\'s bonus.</p>';
         html += '<div class="choice-list">';
         for (const target of targets) {
             const display = INDUSTRY_DISPLAY[target.tile.type];
             const cityName = CITIES[target.cityId]?.name || target.cityId;
+            const offerMerchantBeer = target.beerNeeded > 0 && target.merchantBeerAvailable;
             html += `
                 <div class="choice-item" data-key="${target.key}" data-selected="false">
                     <div class="choice-item-icon">${display.icon}</div>
@@ -764,6 +830,11 @@ class UIManager {
                         <div class="choice-item-name">${display.name} Lv${target.tile.tileData.level}</div>
                         <div class="choice-item-detail">${cityName} | VP: ${target.tile.tileData.vp} | Income: +${target.tile.tileData.income}
                         ${target.beerNeeded > 0 ? ` | Beer: ${target.beerNeeded}` : ''}</div>
+                        ${offerMerchantBeer ? `
+                        <label class="choice-item-detail" style="display:flex;align-items:center;gap:5px;margin-top:4px;cursor:pointer;">
+                            <input type="checkbox" class="merchant-beer-cb" data-key="${target.key}" checked>
+                            Use merchant beer (claim bonus)
+                        </label>` : ''}
                     </div>
                 </div>
             `;
@@ -775,7 +846,8 @@ class UIManager {
 
         const selectedKeys = new Set();
         document.querySelectorAll('#modal-body .choice-item').forEach(item => {
-            item.addEventListener('click', () => {
+            item.addEventListener('click', (e) => {
+                if (e.target.closest('.merchant-beer-cb')) return; // checkbox toggle, not row select
                 const key = item.dataset.key;
                 if (selectedKeys.has(key)) {
                     selectedKeys.delete(key);
@@ -792,7 +864,10 @@ class UIManager {
                 this.showToast('Select at least one industry to sell', 'warning');
                 return;
             }
-            this.pendingData.tileKeys = [...selectedKeys];
+            this.pendingData.sellPlan = [...selectedKeys].map(key => {
+                const cb = document.querySelector(`.merchant-beer-cb[data-key="${key}"]`);
+                return { key, useMerchantBeer: cb ? cb.checked : false };
+            });
             this.closeModal();
             this.actionStep = 1;
             this.updatePhaseBar();
@@ -852,7 +927,8 @@ class UIManager {
                 );
                 if (result.success) {
                     const display = INDUSTRY_DISPLAY[this.pendingData.industryType];
-                    const cityName = CITIES[this.pendingData.cityId]?.name;
+                    const cityName = CITIES[this.pendingData.cityId]?.name ||
+                        BREWERY_FARMS[this.pendingData.cityId]?.name || this.pendingData.cityId;
                     this.addLogEntry(playerId, `built ${display.name} in ${cityName}`);
                 }
                 this.completeAction(result);
@@ -860,11 +936,16 @@ class UIManager {
             }
 
             case ACTIONS.NETWORK: {
-                const result = this.logic.executeNetwork(
-                    playerId,
-                    this.pendingData.connectionId,
-                    cardIndex
-                );
+                const result = this.pendingData.connectionId2
+                    ? this.logic.executeNetworkDouble(
+                        playerId,
+                        this.pendingData.connectionId,
+                        this.pendingData.connectionId2,
+                        cardIndex)
+                    : this.logic.executeNetwork(
+                        playerId,
+                        this.pendingData.connectionId,
+                        cardIndex);
                 if (result.success) {
                     this.addLogEntry(playerId, result.message.replace(/^Built /, 'built '));
                 }
@@ -889,11 +970,19 @@ class UIManager {
             case ACTIONS.SELL: {
                 const result = this.logic.executeSell(
                     playerId,
-                    this.pendingData.tileKeys,
-                    cardIndex
+                    this.pendingData.sellPlan,
+                    cardIndex,
+                    { autoResolveDevelop: this.state.players[playerId].isAI }
                 );
                 if (result.success) {
                     this.addLogEntry(playerId, result.message.toLowerCase());
+                    if (result.pendingDevelopBonuses > 0) {
+                        // Gloucester bonus: let the human choose which tile(s)
+                        // to remove before the turn advances
+                        this.resolveDevelopBonuses(playerId, result.pendingDevelopBonuses,
+                            () => this.completeAction(result));
+                        break;
+                    }
                 }
                 this.completeAction(result);
                 break;
@@ -943,6 +1032,51 @@ class UIManager {
         }
     }
 
+    // Gloucester merchant bonus: modal chain letting a human pick which
+    // tile(s) to remove from their mat (or skip), then continue the turn.
+    resolveDevelopBonuses(playerId, count, done) {
+        const types = this.logic.getDevelopableTypes(playerId);
+        if (count <= 0 || types.length === 0) {
+            this.closeModal();
+            done();
+            return;
+        }
+
+        let html = '<p style="margin-bottom:12px;color:var(--text-secondary);font-size:13px;">Merchant bonus: remove a tile from your mat for free (no iron cost), or skip.</p>';
+        html += '<div class="choice-list">';
+        html += '<div class="choice-item" data-type="skip"><div class="choice-item-text"><div class="choice-item-name">Skip bonus</div></div></div>';
+        for (const t of types) {
+            const display = INDUSTRY_DISPLAY[t.type];
+            html += `
+                <div class="choice-item" data-type="${t.type}">
+                    <div class="choice-item-icon">${display.icon}</div>
+                    <div class="choice-item-text">
+                        <div class="choice-item-name">${display.name} Lv${t.level}</div>
+                    </div>
+                </div>
+            `;
+        }
+        html += '</div>';
+
+        this.showModal('Free Develop (Merchant Bonus)', html, () => {});
+
+        document.querySelectorAll('#modal-body .choice-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const type = item.dataset.type;
+                if (type === 'skip') {
+                    this.closeModal();
+                    done();
+                    return;
+                }
+                const removed = this.logic.applyFreeDevelop(playerId, 1, type);
+                if (removed.length) {
+                    this.addLogEntry(playerId, `used merchant bonus: developed ${removed[0]}`);
+                }
+                this.resolveDevelopBonuses(playerId, count - 1, done);
+            });
+        });
+    }
+
     completeAction(result) {
         if (result.success) {
             this.showToast(result.message, 'success');
@@ -962,6 +1096,12 @@ class UIManager {
         this.renderer.clearHighlights();
 
         const turnResult = this.state.advanceTurn();
+
+        // Surface end-of-round upkeep events (income shortfall sales etc.)
+        for (const ev of this.state.lastRoundEvents || []) {
+            this.addLogEntry(ev.playerId, ev.message);
+        }
+        this.state.lastRoundEvents = [];
 
         if (turnResult === 'endCanalEra') {
             this.addLogEntry(null, 'Canal Era Scoring', 'era');
@@ -1036,6 +1176,22 @@ class UIManager {
         if (!target) return;
 
         if (this.selectedAction === ACTIONS.BUILD && this.actionStep === 0) {
+            // Farm brewery clicks
+            const farm = target.closest('.brewery-farm');
+            if (farm && farm.classList.contains('highlight-slot')) {
+                const farmId = farm.dataset.farm;
+                const farmTargets = (this.pendingData.buildTargets || []).filter(t => t.cityId === farmId);
+                if (farmTargets.length >= 1) {
+                    this.pendingData = { cityId: farmId, slotIndex: 0, industryType: INDUSTRY_TYPES.BREWERY };
+                    this.closeModal();
+                    this.renderer.clearHighlights();
+                    this.actionStep = 1;
+                    this.updatePhaseBar();
+                    this.updateHand();
+                    return;
+                }
+            }
+
             const slot = target.closest('.industry-slot');
             if (slot && slot.classList.contains('highlight-slot')) {
                 const cityId = slot.dataset.city;
@@ -1062,13 +1218,7 @@ class UIManager {
         if (this.selectedAction === ACTIONS.NETWORK) {
             const line = target.closest('.connection-line');
             if (line && line.classList.contains('highlight')) {
-                const connId = line.dataset.connection;
-                this.pendingData = { connectionId: connId };
-                this.renderer.clearHighlights();
-                this.closeModal();
-                this.actionStep = 1;
-                this.updatePhaseBar();
-                this.updateHand();
+                this.afterNetworkFirstSelection(line.dataset.connection);
             }
         }
     }
@@ -1147,7 +1297,11 @@ class UIManager {
     showGameOver(scores) {
         const overlay = document.getElementById('gameover-overlay');
 
-        const sorted = [...this.state.players].sort((a, b) => b.vp - a.vp);
+        // Rulebook: ties broken by highest income level, then most money
+        const sorted = [...this.state.players].sort((a, b) =>
+            (b.vp - a.vp) ||
+            (this.state.getIncomeLevel(b.id) - this.state.getIncomeLevel(a.id)) ||
+            (b.money - a.money));
 
         let html = '<table class="scoring-table"><thead><tr><th>Rank</th><th>Player</th><th>VP</th><th>Income</th><th>Money</th></tr></thead><tbody>';
         sorted.forEach((p, i) => {
@@ -1155,7 +1309,7 @@ class UIManager {
                 <td>${i + 1}</td>
                 <td style="color:${p.color}">${p.name}</td>
                 <td>${p.vp}</td>
-                <td>${p.income}</td>
+                <td>${this.state.getIncomeLevel(p.id)}</td>
                 <td>£${p.money}</td>
             </tr>`;
         });

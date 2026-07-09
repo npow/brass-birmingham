@@ -53,7 +53,7 @@ const AIPlayer = (() => {
         }
         if (card.type === CARD_TYPES.INDUSTRY) {
             const remaining = state.getRemainingTiles(playerId);
-            const has = remaining[card.industryType] && remaining[card.industryType].count > 0;
+            const has = card.industryTypes.some(t => remaining[t] && remaining[t].count > 0);
             return has ? 1.5 : 0;
         }
         return 0.5;
@@ -82,9 +82,9 @@ const AIPlayer = (() => {
             base = 0.6;
             const connected = state.getConnectedLocations(cityId);
             const hasReachableMerchant = state.merchantTiles.some(mt =>
-                !mt.bonusClaimed && connected.has(mt.location) && (mt.buys === null || mt.buys === industryType)
+                connected.has(mt.location) && state.merchantTileAccepts(mt, industryType)
             );
-            if (hasReachableMerchant || cand.tileData.beersToSell === 0) base += 0.2;
+            if (hasReachableMerchant) base += 0.2;
             if (estimateRoundsRemaining(state) < 2) base -= 0.3;
         }
         return Math.max(0.1, Math.min(1, base));
@@ -273,12 +273,13 @@ const AIPlayer = (() => {
     // SELL
     // ------------------------------------------------------------------
 
-    function bestReachableUnclaimedMerchantBonus(state, playerId, target) {
-        const connected = state.getConnectedLocations(target.cityId);
+    // Value of the best merchant beer bonus this sale could claim (only
+    // merchants with a barrel remaining grant bonuses).
+    function bestMerchantBeerBonus(state, target) {
         let best = 0;
-        for (const mt of state.merchantTiles) {
-            if (mt.bonusClaimed || !connected.has(mt.location)) continue;
-            if (mt.buys !== null && mt.buys !== target.tile.type) continue;
+        for (const i of target.merchantIndices) {
+            const mt = state.merchantTiles[i];
+            if (!mt.hasBeer) continue;
             const merchData = MERCHANTS[mt.location];
             if (!merchData) continue;
             let value = 0;
@@ -298,15 +299,17 @@ const AIPlayer = (() => {
         if (targets.length === 0) return null;
 
         const ranked = targets.map(t => {
-            const bonus = bestReachableUnclaimedMerchantBonus(state, playerId, t);
+            const bonus = bestMerchantBeerBonus(state, t);
             const tileValue = t.tile.tileData.vp + t.tile.tileData.income * 0.3;
             return { t, tileValue, bonus };
         }).sort((a, b) => (b.bonus - a.bonus) || (b.tileValue - a.tileValue));
 
-        const tileKeys = ranked.map(r => r.t.key);
+        // Drink merchant beer whenever it's on offer: the bonus is free and
+        // it spares brewery barrels for other sales.
+        const sellPlan = ranked.map(r => ({ key: r.t.key, useMerchantBeer: r.t.merchantBeerAvailable }));
         const totalVP = ranked.reduce((s, r) => s + r.t.tile.tileData.vp, 0);
         const totalIncome = ranked.reduce((s, r) => s + r.t.tile.tileData.income, 0);
-        const bestBonus = ranked.length > 0 ? ranked[0].bonus : 0;
+        const totalBonus = ranked.reduce((s, r) => s + r.bonus, 0);
 
         const player = state.players[playerId];
         const cardIndex = pickCardIndex(logic, playerId, ACTIONS.SELL, null, player);
@@ -314,9 +317,9 @@ const AIPlayer = (() => {
 
         return {
             action: ACTIONS.SELL,
-            pendingData: { tileKeys },
+            pendingData: { sellPlan },
             cardIndex,
-            score: vpEquivalent(state, { vp: totalVP, income: totalIncome }) + bestBonus,
+            score: vpEquivalent(state, { vp: totalVP, income: totalIncome }) + totalBonus,
         };
     }
 
@@ -336,7 +339,9 @@ const AIPlayer = (() => {
     }
 
     function scoreLoanResult(state, logic, playerId) {
+        if (!state.canTakeLoan(playerId)) return null;
         const player = state.players[playerId];
+        const incomeLevel = state.getIncomeLevel(playerId);
         const cheapest = cheapestAffordableBuildOrNetworkCost(state, logic, playerId);
         // Loan is a safety valve, not a scoring play — money sitting unspent has
         // no direct end-game value, so only credit a small flexibility premium
@@ -344,7 +349,7 @@ const AIPlayer = (() => {
         // when a loan is actually needed to afford the next move.
         const cashCrunchBonus = (player.money < cheapest) ? 4.0 : 0;
         const alreadyFlushPenalty = player.money > cheapest * 2.5 ? 2.5 : 0;
-        const incomeFloorPenalty = player.income <= (MIN_INCOME + 3) ? 2.5 : 0;
+        const incomeFloorPenalty = incomeLevel <= (MIN_INCOME + 5) ? 2.5 : 0;
 
         const score = vpEquivalent(state, { money: LOAN_AMOUNT * 0.25, income: -LOAN_INCOME_PENALTY })
             + cashCrunchBonus - incomeFloorPenalty - alreadyFlushPenalty;
@@ -429,7 +434,7 @@ const AIPlayer = (() => {
             if (p.id === playerId) continue;
             for (const card of p.hand) {
                 if (card.type === CARD_TYPES.LOCATION && card.location === cityId) bonus += 0.6;
-                if (card.type === CARD_TYPES.INDUSTRY && card.industryType === industryType) bonus += 0.3;
+                if (card.type === CARD_TYPES.INDUSTRY && card.industryTypes.includes(industryType)) bonus += 0.3;
             }
         }
         return bonus;
