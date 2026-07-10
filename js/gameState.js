@@ -628,11 +628,19 @@ class GameState {
             }
         }
 
-        // Remove all industry tiles from board (all levels, flipped or not)
-        this.boardIndustries = {};
+        // Remove only level 1 industry tiles from board; level 2+ carry over to Rail Era
+        for (const [key, tile] of Object.entries(this.boardIndustries)) {
+            if (tile.tileData.level === 1) {
+                delete this.boardIndustries[key];
+            }
+        }
 
-        // Remove all brewery farm tiles
-        this.breweryFarmTiles = {};
+        // Remove only level 1 brewery farm tiles
+        for (const [farmId, tile] of Object.entries(this.breweryFarmTiles)) {
+            if (tile.tileData.level === 1) {
+                delete this.breweryFarmTiles[farmId];
+            }
+        }
 
         // Transition to rail era
         this.era = ERA.RAIL;
