@@ -585,12 +585,12 @@ class GameState {
             }
         }
 
-        // Determine turn order: player who spent MOST goes first next round
+        // Determine turn order: player who spent LEAST goes first next round
         // Ties broken by current turn order (earlier player goes first)
         this.turnOrder.sort((a, b) => {
             const spentA = this.moneySpentThisRound[a] || 0;
             const spentB = this.moneySpentThisRound[b] || 0;
-            if (spentA !== spentB) return spentB - spentA; // More spending = earlier turn
+            if (spentA !== spentB) return spentA - spentB; // Less spending = earlier turn
             return 0; // Maintain current relative order for ties
         });
 
