@@ -237,7 +237,7 @@ h1, h2, h3 {
     flex-shrink: 0;
 }
 
-.player-name-input input {
+.player-name-input input[type="text"] {
     flex: 1;
     padding: 10px 14px;
     font-family: 'Source Sans Pro', sans-serif;
@@ -250,8 +250,45 @@ h1, h2, h3 {
     transition: border-color 0.2s;
 }
 
-.player-name-input input:focus {
+.player-name-input input[type="text"]:focus {
     border-color: var(--accent-gold);
+}
+
+.player-name-input .ai-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: 'Source Sans Pro', sans-serif;
+    font-size: 13px;
+    color: var(--text-secondary);
+    cursor: pointer;
+    flex-shrink: 0;
+    user-select: none;
+}
+
+.player-name-input .ai-toggle-checkbox {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--accent-gold);
+    cursor: pointer;
+}
+
+.player-name-input .ai-difficulty-select {
+    flex-shrink: 0;
+    padding: 8px 10px;
+    font-family: 'Source Sans Pro', sans-serif;
+    font-size: 13px;
+    background: var(--bg-dark);
+    color: var(--text-primary);
+    border: 1px solid var(--border-dark);
+    border-radius: 4px;
+    outline: none;
+    transition: opacity 0.2s;
+}
+
+.player-name-input .ai-difficulty-select:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 .btn-primary {
@@ -604,6 +641,30 @@ h1, h2, h3 {
     font-size: 13px;
     font-weight: 600;
     letter-spacing: 0.5px;
+}
+
+.ai-chip {
+    display: inline-block;
+    font-family: 'Source Sans Pro', sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: var(--bg-dark);
+    background: var(--accent-gold);
+    border-radius: 3px;
+    padding: 1px 4px;
+    margin-left: 5px;
+    vertical-align: middle;
+}
+
+/* Dim and disable interaction while an AI player is taking its turn */
+.ai-turn-active #action-buttons,
+.ai-turn-active #player-hand,
+.ai-turn-active #game-board {
+    pointer-events: none;
+    opacity: 0.65;
+    filter: grayscale(0.15);
+    transition: opacity 0.3s, filter 0.3s;
 }
 
 .player-panel-vp {
@@ -1008,6 +1069,16 @@ h1, h2, h3 {
 
 .card.location-card {
     border-color: #3a5a3a;
+    background-image:
+        radial-gradient(circle at 50% 30%, var(--region-tint, transparent) 0%, transparent 70%),
+        repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 3px,
+            rgba(201,168,76,0.015) 3px,
+            rgba(201,168,76,0.015) 6px
+        ),
+        linear-gradient(160deg, #352c1e 0%, #2a2018 50%, #221a12 100%);
 }
 
 .card.location-card:hover {
@@ -1024,7 +1095,24 @@ h1, h2, h3 {
 
 .card.wild-card {
     border-color: var(--accent-gold);
-    background: linear-gradient(135deg, var(--bg-card) 0%, #3a3020 50%, var(--bg-card) 100%);
+    background:
+        repeating-conic-gradient(from 0deg, rgba(201,168,76,0.16) 0deg 15deg, transparent 15deg 30deg),
+        linear-gradient(135deg, var(--bg-card) 0%, #3a3020 50%, var(--bg-card) 100%);
+}
+
+/* Colored corner ribbon on industry cards, tinted per industry type via
+   the --industry-ribbon-color custom property set inline by JS. */
+.card.industry-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 0 16px 16px 0;
+    border-color: transparent var(--industry-ribbon-color, #8a5a5a) transparent transparent;
+    opacity: 0.85;
 }
 
 /* SVG icons for cards */
@@ -1192,14 +1280,32 @@ h1, h2, h3 {
     height: 28px;
     border-radius: 3px;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    font-size: 10px;
+    gap: 1px;
+    font-size: 9px;
     font-weight: 600;
     border: 1px solid var(--border-dark);
     background: var(--bg-dark);
     color: var(--text-secondary);
     transition: all 0.2s;
+}
+
+.mat-tile-icon {
+    width: 12px;
+    height: 12px;
+    display: flex;
+    opacity: 0.75;
+}
+
+.mat-tile-icon .card-svg-icon {
+    width: 12px;
+    height: 12px;
+}
+
+.mat-tile.used .mat-tile-icon {
+    opacity: 0.3;
 }
 
 .mat-tile.available {

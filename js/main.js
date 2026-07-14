@@ -30,10 +30,18 @@ function initSetup() {
     // Start game button
     document.getElementById('start-game-btn').addEventListener('click', () => {
         const names = [];
-        document.querySelectorAll('.player-name-input input').forEach(input => {
+        const playerIsAI = [];
+        document.querySelectorAll('.player-name-input').forEach(row => {
+            const input = row.querySelector('input[type="text"]');
             names.push(input.value || input.placeholder);
+            const aiCheckbox = row.querySelector('.ai-toggle-checkbox');
+            const difficultySelect = row.querySelector('.ai-difficulty-select');
+            playerIsAI.push({
+                isAI: aiCheckbox.checked,
+                difficulty: difficultySelect.value,
+            });
         });
-        startGame(playerCount, names);
+        startGame(playerCount, names, playerIsAI);
     });
 }
 
@@ -49,7 +57,21 @@ function renderPlayerInputs(count) {
         div.innerHTML = `
             <div class="color-swatch" style="background: ${PLAYER_COLORS[i]}"></div>
             <input type="text" placeholder="${defaultNames[i]}" maxlength="20">
+            <label class="ai-toggle">
+                <input type="checkbox" class="ai-toggle-checkbox">
+                <span>AI</span>
+            </label>
+            <select class="ai-difficulty-select" disabled>
+                <option value="easy">Easy</option>
+                <option value="normal" selected>Normal</option>
+                <option value="hard">Hard</option>
+            </select>
         `;
+        const aiCheckbox = div.querySelector('.ai-toggle-checkbox');
+        const difficultySelect = div.querySelector('.ai-difficulty-select');
+        aiCheckbox.addEventListener('change', () => {
+            difficultySelect.disabled = !aiCheckbox.checked;
+        });
         container.appendChild(div);
     }
 }
@@ -58,13 +80,13 @@ function renderPlayerInputs(count) {
 // Game Initialization
 // ============================================================================
 
-function startGame(numPlayers, playerNames) {
+function startGame(numPlayers, playerNames, playerIsAI = []) {
     // Switch screens
     document.getElementById('setup-screen').classList.remove('active');
     document.getElementById('game-screen').classList.add('active');
 
     // Create game state
-    gameState = new GameState(numPlayers, playerNames);
+    gameState = new GameState(numPlayers, playerNames, playerIsAI);
 
     // Create game logic
     gameLogic = new GameLogic(gameState);
@@ -82,6 +104,8 @@ function startGame(numPlayers, playerNames) {
     window.render_game_to_text = () => JSON.stringify(gameState.toJSON(), null, 2);
     window.gameState = gameState;
     window.gameLogic = gameLogic;
+    window.uiManager = uiManager;
+    window.AIPlayer = AIPlayer;
 }
 
 // ============================================================================
