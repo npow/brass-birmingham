@@ -314,13 +314,14 @@ const CITIES = {
     },
 };
 
-// Region display colors (background tints for cities)
+// Region display colors (background tints for cities) — matched to the
+// watercolor washes of the original Brass: Birmingham day-side board.
 const REGION_COLORS = {
-    derbyshire:   { fill: '#537c80', border: '#3d5c5f' },
-    staffordshire:{ fill: '#1e5aa0', border: '#174580' },
-    midlands:     { fill: '#8c4e51', border: '#6d3d3f' },
-    blackCountry: { fill: '#986627', border: '#7a521f' },
-    birmingham:   { fill: '#564a5e', border: '#443b4b' },
+    derbyshire:   { fill: '#4d7d80', border: '#33595c' },
+    staffordshire:{ fill: '#39679c', border: '#264a74' },
+    midlands:     { fill: '#9c4b47', border: '#6f332f' },
+    blackCountry: { fill: '#a8762e', border: '#75511f' },
+    birmingham:   { fill: '#6d5480', border: '#4c3a5b' },
 };
 
 // ============================================================================
@@ -383,14 +384,21 @@ const MERCHANTS = {
     },
 };
 
-// Merchant tiles, marked by minimum player count as on the physical tiles.
-// Per the rulebook, the active tiles are shuffled and dealt randomly to the
-// merchant slots in play. buys: 'any' = any sellable good; 'blank' = buys
-// nothing (no beer barrel is placed beside blank tiles).
+// Merchant tiles per player count, matching the physical tile decks
+// (verified against the TTS implementation). The active set is shuffled and
+// dealt randomly to the merchant slots in play. buys: 'any' = any sellable
+// good; 'blank' = buys nothing (no beer barrel sits beside blank tiles).
+//
+//   2p: blank x2, any x1, cotton x1, manufacturer x1
+//   3p: blank x3, any x1, cotton x1, manufacturer x1, pottery x1
+//   4p: blank x3, any x1, cotton x3, manufacturer x2
 const MERCHANT_TILE_MIX = {
     2: ['blank', 'blank', 'any', INDUSTRY_TYPES.COTTON_MILL, INDUSTRY_TYPES.MANUFACTURER],
-    3: [INDUSTRY_TYPES.POTTERY, INDUSTRY_TYPES.MANUFACTURER],
-    4: ['any', INDUSTRY_TYPES.COTTON_MILL],
+    3: ['blank', 'blank', 'blank', 'any', INDUSTRY_TYPES.COTTON_MILL,
+        INDUSTRY_TYPES.MANUFACTURER, INDUSTRY_TYPES.POTTERY],
+    4: ['blank', 'blank', 'blank', 'any',
+        INDUSTRY_TYPES.COTTON_MILL, INDUSTRY_TYPES.COTTON_MILL, INDUSTRY_TYPES.COTTON_MILL,
+        INDUSTRY_TYPES.MANUFACTURER, INDUSTRY_TYPES.MANUFACTURER],
 };
 
 // ============================================================================
@@ -477,7 +485,8 @@ const CARD_DECK = {
             [INDUSTRY_TYPES.POTTERY]: 2,
             [INDUSTRY_TYPES.BREWERY]: 5,
         },
-        // Dual "Cotton Mill or Manufacturer" cards (buildable as either)
+        // Dual "Cotton Mill or Manufacturer" cards (buildable as either).
+        // Deck totals exactly 54 cards so each era lasts exactly 9 rounds.
         dualCottonManufacturer: 6,
     },
     // 4-player has full deck

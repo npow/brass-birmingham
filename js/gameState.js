@@ -99,12 +99,9 @@ class GameState {
     }
 
     initMerchants() {
-        // Gather the tiles marked for this player count, shuffle them, and
-        // deal one to each active merchant slot (rulebook: Board Setup step 5).
-        const mix = [];
-        for (let p = 2; p <= this.numPlayers; p++) {
-            if (MERCHANT_TILE_MIX[p]) mix.push(...MERCHANT_TILE_MIX[p]);
-        }
+        // Shuffle the tile deck for this player count and deal one to each
+        // active merchant slot (rulebook: Board Setup step 5).
+        const mix = [...(MERCHANT_TILE_MIX[this.numPlayers] || [])];
         this.shuffleArray(mix);
 
         const tiles = [];
@@ -745,17 +742,18 @@ class GameState {
             }
         }
 
-        // Remove Level I (canal-era-only) industry tiles; Level II+ tiles persist
-        // into the Rail Era and score again at game end (per the rulebook).
+        // Remove ALL level 1 industry tiles from the board (including the
+        // rail-era-buildable Pottery I); level 2+ tiles persist into the
+        // Rail Era and score again at game end (per the rulebook).
         for (const [key, tile] of Object.entries(this.boardIndustries)) {
-            if (!tile.tileData.railEra) {
+            if (tile.tileData.level === 1) {
                 delete this.boardIndustries[key];
             }
         }
 
         // Same rule for brewery farm tiles
         for (const [farmId, tile] of Object.entries(this.breweryFarmTiles)) {
-            if (tile && !tile.tileData.railEra) {
+            if (tile && tile.tileData.level === 1) {
                 delete this.breweryFarmTiles[farmId];
             }
         }
@@ -788,10 +786,10 @@ class GameState {
             player.hand = [];
         }
 
-        // Reshuffle all cards into draw deck, deal new hands, seed discards
+        // Reshuffle all cards into draw deck and deal new hands.
+        // Rulebook: the rail era does NOT start with seeded discard piles.
         this.initDeck();
         this.dealCards();
-        this.seedDiscardPiles();
 
         return scores;
     }
@@ -820,8 +818,9 @@ class GameState {
             if (!conn) continue;
 
             // Each link scores 1 VP per link icon in adjacent locations.
-            // Icons come from built industry tiles (flipped OR unflipped —
-            // both faces show them) and from merchant locations (2 each).
+            // Link icons are printed only on the FLIPPED face of industry tiles;
+            // unflipped tiles contribute nothing. Merchant locations count
+            // 2 each regardless of tile state.
             let linkValue = 0;
             for (const cityId of conn.cities) {
                 if (isCity(cityId)) {
@@ -829,7 +828,7 @@ class GameState {
                     for (let i = 0; i < city.slots.length; i++) {
                         const key = `${cityId}_${i}`;
                         const tile = this.boardIndustries[key];
-                        if (tile) {
+                        if (tile && tile.flipped) {
                             linkValue += tile.tileData.linkVP;
                         }
                     }
@@ -839,7 +838,7 @@ class GameState {
                 }
                 if (isBreweryFarm(cityId)) {
                     const tile = this.breweryFarmTiles[cityId];
-                    if (tile) {
+                    if (tile && tile.flipped) {
                         linkValue += tile.tileData.linkVP;
                     }
                 }
@@ -847,7 +846,7 @@ class GameState {
             // Also score brewery farms that this link passes through (e.g. kidderminster-worcester via southern)
             if (conn.viaBrewery) {
                 const tile = this.breweryFarmTiles[conn.viaBrewery];
-                if (tile) {
+                if (tile && tile.flipped) {
                     linkValue += tile.tileData.linkVP;
                 }
             }
