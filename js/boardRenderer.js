@@ -616,7 +616,7 @@ class BoardRenderer {
             });
             let bonusStr = '';
             if (merch.bonusType === 'vp') bonusStr = `+${merch.bonusAmount} VP`;
-            else if (merch.bonusType === 'money') bonusStr = `+${merch.bonusAmount} pounds`;
+            else if (merch.bonusType === 'money') bonusStr = `+£${merch.bonusAmount}`;
             else if (merch.bonusType === 'income') bonusStr = `+${merch.bonusAmount} income`;
             else if (merch.bonusType === 'develop') bonusStr = `Free Develop`;
             bonusText.textContent = bonusStr;
@@ -852,11 +852,14 @@ class BoardRenderer {
         this.state = gameState;
         // Remove all dynamic layers first, then re-add in the correct draw order so
         // that built links always render on top of cities, merchants, and brewery farms.
+        // Connections are redrawn too: their era dimming depends on this.state.era.
+        this.svg.querySelector('#connections-layer')?.remove();
         this.svg.querySelector('#brewery-farms-layer')?.remove();
         this.svg.querySelector('#merchants-layer')?.remove();
         this.svg.querySelector('#cities-layer')?.remove();
         this.svg.querySelector('#built-links-layer')?.remove();
 
+        this.drawConnections();
         this.drawBreweryFarms();
         this.drawMerchants();
         this.drawCities();

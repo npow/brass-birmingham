@@ -1459,12 +1459,6 @@ h1, h2, h3 {
     ry: 4;
 }
 
-    stroke: var(--beer-color);
-    stroke-width: 1;
-    rx: 5;
-    ry: 5;
-}
-
 /* Link tiles on board */
 .link-tile {
     stroke-width: 0;
