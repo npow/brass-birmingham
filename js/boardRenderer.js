@@ -16,6 +16,7 @@ class BoardRenderer {
         this.svg.innerHTML = '';
         this.state = gameState;
         this.drawBackground();
+        this.drawRegionWashes();
         this.drawConnections();
         this.drawBreweryFarms();
         this.drawMerchants();
@@ -50,8 +51,8 @@ class BoardRenderer {
     // SVG Industry Icons
     // ========================================================================
 
-    getIndustryIcon(type, size = 14) {
-        return IndustryIcons.renderElement(type, size, 'silhouette');
+    getIndustryIcon(type, size = 14, variant = 'silhouette') {
+        return IndustryIcons.renderElement(type, size, variant);
     }
 
     // ========================================================================
@@ -61,182 +62,124 @@ class BoardRenderer {
     drawBackground() {
         const defs = this.createElement('defs');
 
-        // Parchment noise texture filter
-        const noiseFilter = this.createElement('filter', {
-            id: 'parchmentNoise', x: '0%', y: '0%', width: '100%', height: '100%'
+        // Parchment grain — sepia-tinted fractal noise at low alpha
+        const grainFilter = this.createElement('filter', {
+            id: 'parchmentGrain', x: '0%', y: '0%', width: '100%', height: '100%',
         });
-        const turbulence = this.createElement('feTurbulence', {
-            type: 'fractalNoise',
-            baseFrequency: '0.65',
-            numOctaves: '4',
-            stitchTiles: 'stitch',
-            result: 'noise',
-        });
-        noiseFilter.appendChild(turbulence);
-        const colorMatrix = this.createElement('feColorMatrix', {
-            type: 'saturate', values: '0', in: 'noise', result: 'grayNoise',
-        });
-        noiseFilter.appendChild(colorMatrix);
-        const blend = this.createElement('feBlend', {
-            in: 'SourceGraphic', in2: 'grayNoise', mode: 'multiply',
-        });
-        noiseFilter.appendChild(blend);
-        defs.appendChild(noiseFilter);
+        grainFilter.appendChild(this.createElement('feTurbulence', {
+            type: 'fractalNoise', baseFrequency: '0.9', numOctaves: '2',
+            stitchTiles: 'stitch', result: 'noise',
+        }));
+        grainFilter.appendChild(this.createElement('feColorMatrix', {
+            in: 'noise', type: 'matrix',
+            values: '0 0 0 0 0.42  0 0 0 0 0.34  0 0 0 0 0.20  0 0 0 0.55 0',
+        }));
+        defs.appendChild(grainFilter);
 
-        // Vignette filter
-        const vignetteFilter = this.createElement('filter', {
-            id: 'vignette', x: '-10%', y: '-10%', width: '120%', height: '120%',
+        // Inner shadow for city cards
+        const cardShadow = this.createElement('filter', {
+            id: 'cardShadow', x: '-20%', y: '-20%', width: '140%', height: '140%',
         });
-        const floodVig = this.createElement('feFlood', {
-            'flood-color': 'black', 'flood-opacity': '0.4', result: 'flood',
-        });
-        vignetteFilter.appendChild(floodVig);
-        const vigComp = this.createElement('feComposite', {
-            in: 'flood', in2: 'SourceGraphic', operator: 'in', result: 'mask',
-        });
-        vignetteFilter.appendChild(vigComp);
-        const vigGauss = this.createElement('feGaussianBlur', {
-            in: 'mask', stdDeviation: '80', result: 'blurred',
-        });
-        vignetteFilter.appendChild(vigGauss);
-        const vigBlend = this.createElement('feBlend', {
-            in: 'SourceGraphic', in2: 'blurred', mode: 'multiply',
-        });
-        vignetteFilter.appendChild(vigBlend);
-        defs.appendChild(vignetteFilter);
+        cardShadow.appendChild(this.createElement('feDropShadow', {
+            dx: '0', dy: '1.5', stdDeviation: '1.5',
+            'flood-color': '#3a2a14', 'flood-opacity': '0.45',
+        }));
+        defs.appendChild(cardShadow);
 
-        // Inner shadow for city depth
-        const innerShadow = this.createElement('filter', {
-            id: 'innerShadow', x: '-10%', y: '-10%', width: '120%', height: '120%',
-        });
-        innerShadow.appendChild(this.createElement('feGaussianBlur', {
-            in: 'SourceAlpha', stdDeviation: '2', result: 'blur',
-        }));
-        innerShadow.appendChild(this.createElement('feOffset', {
-            dx: '0', dy: '1', result: 'offsetBlur',
-        }));
-        const isFlood = this.createElement('feFlood', {
-            'flood-color': 'black', 'flood-opacity': '0.4', result: 'color',
-        });
-        innerShadow.appendChild(isFlood);
-        innerShadow.appendChild(this.createElement('feComposite', {
-            in: 'color', in2: 'offsetBlur', operator: 'in', result: 'shadow',
-        }));
-        innerShadow.appendChild(this.createElement('feComposite', {
-            in: 'shadow', in2: 'SourceGraphic', operator: 'over',
-        }));
-        defs.appendChild(innerShadow);
-
-        // Background gradient - warm sepia/parchment aged map tones
-        const bgGrad = this.createElement('radialGradient', { id: 'boardBg', cx: '50%', cy: '45%', r: '70%' });
-        bgGrad.appendChild(this.createElement('stop', { offset: '0%', 'stop-color': '#4a3f2a' }));
-        bgGrad.appendChild(this.createElement('stop', { offset: '55%', 'stop-color': '#38321e' }));
-        bgGrad.appendChild(this.createElement('stop', { offset: '100%', 'stop-color': '#26220e' }));
+        // Aged parchment base
+        const bgGrad = this.createElement('radialGradient', { id: 'boardBg', cx: '50%', cy: '45%', r: '75%' });
+        bgGrad.appendChild(this.createElement('stop', { offset: '0%', 'stop-color': '#f2e7cb' }));
+        bgGrad.appendChild(this.createElement('stop', { offset: '45%', 'stop-color': '#e4d2ac' }));
+        bgGrad.appendChild(this.createElement('stop', { offset: '78%', 'stop-color': '#c9b088' }));
+        bgGrad.appendChild(this.createElement('stop', { offset: '100%', 'stop-color': '#a98e64' }));
         defs.appendChild(bgGrad);
 
-        // Flipped tile gradient (green-tinted for sold/depleted)
-        const tileFlipped = this.createElement('linearGradient', { id: 'tileFlippedBg', x1: '0%', y1: '0%', x2: '0%', y2: '100%' });
-        tileFlipped.appendChild(this.createElement('stop', { offset: '0%', 'stop-color': '#2a4a2a' }));
-        tileFlipped.appendChild(this.createElement('stop', { offset: '100%', 'stop-color': '#1a3a1a' }));
-        defs.appendChild(tileFlipped);
-
-        // Diagonal hatch overlay pattern for flipped ("sold") tiles
-        const hatchPattern = this.createElement('pattern', {
-            id: 'tileFlippedHatch', patternUnits: 'userSpaceOnUse', width: '5', height: '5',
-            patternTransform: 'rotate(45)',
-        });
-        hatchPattern.appendChild(this.createElement('line', {
-            x1: '0', y1: '0', x2: '0', y2: '5',
-            stroke: 'rgba(255,255,255,0.12)', 'stroke-width': '2',
-        }));
-        defs.appendChild(hatchPattern);
-
-        // Glow filter for built tiles
-        const glowFilter = this.createElement('filter', {
-            id: 'tileGlow', x: '-30%', y: '-30%', width: '160%', height: '160%',
-        });
-        glowFilter.appendChild(this.createElement('feGaussianBlur', {
-            in: 'SourceGraphic', stdDeviation: '2.5', result: 'coloredBlur',
-        }));
-        const glowMerge = this.createElement('feMerge');
-        glowMerge.appendChild(this.createElement('feMergeNode', { in: 'coloredBlur' }));
-        glowMerge.appendChild(this.createElement('feMergeNode', { in: 'SourceGraphic' }));
-        glowFilter.appendChild(glowMerge);
-        defs.appendChild(glowFilter);
-
-        // Region background patterns — richer contrast
+        // Region wash gradients (soft watercolor tints under city clusters)
         for (const [regionId, colors] of Object.entries(REGION_COLORS)) {
-            const grad = this.createElement('radialGradient', { id: `region_${regionId}`, cx: '50%', cy: '50%', r: '60%' });
-            grad.appendChild(this.createElement('stop', { offset: '0%', 'stop-color': colors.fill, 'stop-opacity': '0.38' }));
-            grad.appendChild(this.createElement('stop', { offset: '100%', 'stop-color': colors.fill, 'stop-opacity': '0.12' }));
+            const grad = this.createElement('radialGradient', { id: `wash_${regionId}`, cx: '50%', cy: '50%', r: '50%' });
+            grad.appendChild(this.createElement('stop', { offset: '0%', 'stop-color': colors.fill, 'stop-opacity': '0.32' }));
+            grad.appendChild(this.createElement('stop', { offset: '60%', 'stop-color': colors.fill, 'stop-opacity': '0.14' }));
+            grad.appendChild(this.createElement('stop', { offset: '100%', 'stop-color': colors.fill, 'stop-opacity': '0' }));
             defs.appendChild(grad);
         }
 
+        // Aged-edge vignette gradient
+        const vignetteGrad = this.createElement('radialGradient', { id: 'boardVignette', cx: '50%', cy: '48%', r: '72%' });
+        vignetteGrad.appendChild(this.createElement('stop', { offset: '0%', 'stop-color': '#3a2a14', 'stop-opacity': '0' }));
+        vignetteGrad.appendChild(this.createElement('stop', { offset: '62%', 'stop-color': '#3a2a14', 'stop-opacity': '0' }));
+        vignetteGrad.appendChild(this.createElement('stop', { offset: '100%', 'stop-color': '#3a2a14', 'stop-opacity': '0.42' }));
+        defs.appendChild(vignetteGrad);
+
         this.svg.appendChild(defs);
 
-        // Main board rect with texture
-        const bgGroup = this.createGroup({ filter: 'url(#parchmentNoise)' });
-        bgGroup.appendChild(this.createElement('rect', {
+        // Parchment board base + grain + aged edges
+        const board = this.createGroup({ 'pointer-events': 'none' });
+        board.appendChild(this.createElement('rect', {
             x: 0, y: 0, width: 900, height: 850,
             fill: 'url(#boardBg)',
-            rx: 8, ry: 8,
         }));
-        this.svg.appendChild(bgGroup);
-
-        // Vignette overlay
-        this.svg.appendChild(this.createElement('rect', {
+        board.appendChild(this.createElement('rect', {
             x: 0, y: 0, width: 900, height: 850,
-            fill: 'url(#boardBg)',
-            rx: 8, ry: 8,
-            opacity: '0.3',
-            filter: 'url(#vignette)',
+            filter: 'url(#parchmentGrain)', opacity: '0.5',
+        }));
+        board.appendChild(this.createElement('rect', {
+            x: 0, y: 0, width: 900, height: 850,
+            fill: 'url(#boardVignette)',
+        }));
+        this.svg.appendChild(board);
+
+        // Double-rule frame
+        this.svg.appendChild(this.createElement('rect', {
+            x: 5, y: 5, width: 890, height: 840,
+            fill: 'none', stroke: '#6b5238', 'stroke-width': 2.5, rx: 6, ry: 6,
+        }));
+        this.svg.appendChild(this.createElement('rect', {
+            x: 11, y: 11, width: 878, height: 828,
+            fill: 'none', stroke: '#8a6f4d', 'stroke-width': 0.75,
         }));
 
-        // Decorative double-border frame
-        this.svg.appendChild(this.createElement('rect', {
-            x: 4, y: 4, width: 892, height: 842,
-            fill: 'none',
-            stroke: '#5a4a38',
-            'stroke-width': 1,
-            rx: 7, ry: 7,
-        }));
-        this.svg.appendChild(this.createElement('rect', {
-            x: 8, y: 8, width: 884, height: 834,
-            fill: 'none',
-            stroke: '#3a2c20',
-            'stroke-width': 0.5,
-            rx: 5, ry: 5,
-        }));
-
-        // Title
-        const titleGroup = this.createGroup({ transform: 'translate(450, 830)' });
+        // Title cartouche
+        const titleGroup = this.createGroup({ transform: 'translate(450, 838)' });
         const titleText = this.createElement('text', {
             'text-anchor': 'middle',
             'font-family': 'Cinzel, serif',
-            'font-size': '12',
-            fill: '#6a5a48',
-            'letter-spacing': '4',
+            'font-size': '10',
+            fill: '#7c6244',
+            'letter-spacing': '5',
         });
-        titleText.textContent = 'BRASS: BIRMINGHAM';
+        titleText.textContent = 'BRASS · BIRMINGHAM';
         titleGroup.appendChild(titleText);
         this.svg.appendChild(titleGroup);
     }
 
     // ========================================================================
-    // Connections with enhanced canal/rail styling
+    // Region washes — watercolor-style tints beneath each city cluster
+    // ========================================================================
+
+    drawRegionWashes() {
+        const g = this.createGroup({ id: 'region-washes-layer', 'pointer-events': 'none' });
+        for (const city of Object.values(CITIES)) {
+            g.appendChild(this.createElement('ellipse', {
+                cx: city.x, cy: city.y + 6,
+                rx: 96, ry: 66,
+                fill: `url(#wash_${city.region})`,
+            }));
+        }
+        this.svg.appendChild(g);
+    }
+
+    // ========================================================================
+    // Connections — blue canal waterways, dark rail lines
     // ========================================================================
 
     drawConnections() {
         const connGroup = this.createGroup({ id: 'connections-layer' });
+        const era = this.state ? this.state.era : ERA.CANAL;
 
         for (const conn of CONNECTIONS) {
             const pos1 = getLocationPosition(conn.cities[0]);
             const pos2 = getLocationPosition(conn.cities[1]);
             if (!pos1 || !pos2) continue;
-
-            const isCanal = conn.canal;
-            const isRail = conn.rail;
-            const era = this.state ? this.state.era : ERA.CANAL;
 
             // Get line segments (handle via-brewery routing)
             const segments = [];
@@ -250,76 +193,56 @@ class BoardRenderer {
                 segments.push({ x1: pos1.x, y1: pos1.y, x2: pos2.x, y2: pos2.y });
             }
 
+            // Both printed path types stay visible like on the physical board;
+            // the type closed for the current era is drawn faint.
+            const canalDim = era === ERA.RAIL ? 0.35 : 1;
+            const railDim = era === ERA.CANAL ? 0.55 : 1;
+
             for (const seg of segments) {
-                if (isCanal && era === ERA.CANAL) {
-                    // Canal: vibrant blue water with glow
-                    // Outer thick translucent glow
+                if (conn.canal) {
+                    // Canal: blue waterway band with darker channel centre
                     connGroup.appendChild(this.createElement('line', {
                         ...seg,
-                        stroke: '#4499cc',
-                        'stroke-width': 8,
+                        stroke: '#7ba7bd',
+                        'stroke-width': 7,
                         'stroke-linecap': 'round',
-                        'stroke-opacity': '0.22',
-                        'data-connection': conn.id,
-                        class: 'connection-line',
-                    }));
-                    // Mid layer for contrast
-                    connGroup.appendChild(this.createElement('line', {
-                        ...seg,
-                        stroke: '#3388bb',
-                        'stroke-width': 4,
-                        'stroke-linecap': 'round',
-                        'stroke-opacity': '0.45',
-                        'data-connection': conn.id,
+                        'stroke-opacity': String(0.40 * canalDim),
                         class: 'connection-line',
                         'pointer-events': 'none',
+                        'data-connection': conn.id,
                     }));
-                    // Inner bright center
                     connGroup.appendChild(this.createElement('line', {
                         ...seg,
-                        stroke: '#66bbee',
-                        'stroke-width': 3,
+                        stroke: '#4a7d9d',
+                        'stroke-width': 2.4,
                         'stroke-linecap': 'round',
-                        'stroke-opacity': '0.7',
-                        'data-connection': conn.id,
+                        'stroke-opacity': String(0.85 * canalDim),
                         class: 'connection-line',
                         'pointer-events': 'none',
-                    }));
-                } else if (isRail && era === ERA.RAIL) {
-                    // Rail: dark ballast bed with visible tie marks
-                    // Outer thick dark ballast
-                    connGroup.appendChild(this.createElement('line', {
-                        ...seg,
-                        stroke: '#555',
-                        'stroke-width': 5,
-                        'stroke-linecap': 'round',
-                        'stroke-opacity': '0.55',
                         'data-connection': conn.id,
-                        class: 'connection-line',
-                    }));
-                    // Rail sleepers/ties — dotted dark line
-                    connGroup.appendChild(this.createElement('line', {
-                        ...seg,
-                        stroke: '#888',
-                        'stroke-width': 2,
-                        'stroke-linecap': 'butt',
-                        'stroke-dasharray': '3 7',
-                        'stroke-opacity': '0.65',
-                        'data-connection': conn.id,
-                        class: 'connection-line',
-                        'pointer-events': 'none',
                     }));
                 }
-            }
-
-            // Dual connection indicator
-            if (!conn.viaBrewery && isCanal && isRail) {
-                const midX = (pos1.x + pos2.x) / 2;
-                const midY = (pos1.y + pos2.y) / 2;
-                connGroup.appendChild(this.createElement('circle', {
-                    cx: midX, cy: midY, r: 2.5,
-                    fill: '#5599cc', opacity: '0.4',
-                    stroke: '#777', 'stroke-width': 0.5,
+                if (conn.rail) {
+                    // Rail: dashed dark permanent-way line
+                    connGroup.appendChild(this.createElement('line', {
+                        ...seg,
+                        stroke: '#4e483f',
+                        'stroke-width': 2.6,
+                        'stroke-linecap': 'butt',
+                        'stroke-dasharray': '7 6',
+                        'stroke-opacity': String(0.72 * railDim),
+                        class: 'connection-line',
+                        'pointer-events': 'none',
+                        'data-connection': conn.id,
+                    }));
+                }
+                // Wide invisible hit area for selection
+                connGroup.appendChild(this.createElement('line', {
+                    ...seg,
+                    stroke: 'transparent',
+                    'stroke-width': 12,
+                    class: 'connection-line',
+                    'data-connection': conn.id,
                 }));
             }
         }
@@ -327,22 +250,24 @@ class BoardRenderer {
         this.svg.appendChild(connGroup);
     }
 
+
     // ========================================================================
     // Cities with enhanced styling
     // ========================================================================
 
-    // Returns a slot border color for a given industry type
+    // Returns a slot border color for a given industry type (ivory/ink tones)
     getSlotBorderColor(type) {
         const slotColors = {
-            [INDUSTRY_TYPES.COTTON_MILL]: '#b8c5a0',
-            [INDUSTRY_TYPES.COAL_MINE]: '#6a6a6a',
-            [INDUSTRY_TYPES.IRON_WORKS]: '#c87820',
-            [INDUSTRY_TYPES.MANUFACTURER]: '#9a7a30',
-            [INDUSTRY_TYPES.POTTERY]: '#b05040',
-            [INDUSTRY_TYPES.BREWERY]: '#c8a030',
+            [INDUSTRY_TYPES.COTTON_MILL]: '#c9bd9c',
+            [INDUSTRY_TYPES.COAL_MINE]: '#8f887a',
+            [INDUSTRY_TYPES.IRON_WORKS]: '#c98d4a',
+            [INDUSTRY_TYPES.MANUFACTURER]: '#b09a5e',
+            [INDUSTRY_TYPES.POTTERY]: '#bf7a62',
+            [INDUSTRY_TYPES.BREWERY]: '#cfa94e',
         };
         return slotColors[type] || 'rgba(255,255,255,0.25)';
     }
+
 
     drawCities() {
         const cityGroup = this.createGroup({ id: 'cities-layer' });
@@ -354,73 +279,58 @@ class BoardRenderer {
                 transform: `translate(${city.x}, ${city.y})`
             });
 
-            // Calculate city dimensions
             const slotsPerRow = Math.min(city.slots.length, 4);
             const rows = Math.ceil(city.slots.length / slotsPerRow);
             const cityWidth = slotsPerRow * (this.citySlotSize + 4) + this.cityPadding * 2;
-            const cityHeight = rows * (this.citySlotSize + 4) + 26 + this.cityPadding;
+            const cityHeight = rows * (this.citySlotSize + 4) + 27 + this.cityPadding;
 
             const regionColors = REGION_COLORS[city.region] || REGION_COLORS.birmingham;
 
-            // Outer glow ring — larger rounded rect for a distinctive "city node" look
-            g.appendChild(this.createElement('rect', {
-                x: -cityWidth / 2 - 3,
-                y: -17,
-                width: cityWidth + 6,
-                height: cityHeight + 6,
-                rx: 10, ry: 10,
-                fill: 'none',
-                stroke: regionColors.border,
-                'stroke-width': 2.5,
-                'stroke-opacity': '0.6',
-                filter: 'url(#innerShadow)',
-            }));
-
-            // City body — rounded shape (rounder rx/ry)
+            // City card — parchment panel with region-coloured border
             g.appendChild(this.createElement('rect', {
                 x: -cityWidth / 2,
-                y: -14,
+                y: -15,
                 width: cityWidth,
                 height: cityHeight,
-                rx: 8, ry: 8,
+                rx: 7, ry: 7,
                 class: 'city-bg',
-                fill: regionColors.fill,
-                'fill-opacity': '0.55',
+                fill: '#f7edd3',
                 stroke: regionColors.border,
-                'stroke-width': '2',
-                filter: 'url(#innerShadow)',
+                'stroke-width': 1.25,
+                filter: 'url(#cardShadow)',
             }));
 
-            // Beveled paper-cut highlight along the top edge
-            g.appendChild(this.createElement('path', {
-                d: `M${-cityWidth / 2 + 8},${-13} Q${-cityWidth / 2},${-13} ${-cityWidth / 2},${-5}`,
-                fill: 'none',
-                stroke: 'rgba(255,255,255,0.25)',
-                'stroke-width': 1,
-                'stroke-linecap': 'round',
-            }));
-
-            // Dark backing rect behind city name for readability
-            const nameLen = city.name.length;
-            const nameWidth = Math.max(nameLen * 6.5 + 12, cityWidth - 4);
+            // Region colour strip along the top of the card
             g.appendChild(this.createElement('rect', {
-                x: -nameWidth / 2,
-                y: -13,
-                width: nameWidth,
+                x: -cityWidth / 2 + 1.5,
+                y: 2.5,
+                width: cityWidth - 3,
+                height: 2.5,
+                rx: 1.25, ry: 1.25,
+                fill: regionColors.fill,
+                opacity: 0.75,
+            }));
+
+            // Dark banner ribbon with the city name
+            g.appendChild(this.createElement('rect', {
+                x: -cityWidth / 2 - 2,
+                y: -18,
+                width: cityWidth + 4,
                 height: 16,
-                fill: 'rgba(0,0,0,0.72)',
-                rx: 5, ry: 5,
+                rx: 4, ry: 4,
+                fill: '#33291e',
+                stroke: '#1f1810',
+                'stroke-width': 0.75,
                 class: 'city-label-bg',
             }));
 
-            // City name — larger and more readable
             const nameText = this.createElement('text', {
-                x: 0, y: -2,
+                x: 0, y: -6.5,
                 class: 'city-label',
-                'font-size': city.name.length > 12 ? '8.5' : '10',
+                'font-size': city.name.length > 12 ? '8.5' : '9.5',
                 'font-weight': '700',
-                'letter-spacing': '0.5',
-                fill: '#f0e0c0',
+                'letter-spacing': '0.6',
+                fill: '#f0e4c8',
             });
             nameText.textContent = city.name;
             g.appendChild(nameText);
@@ -442,19 +352,18 @@ class BoardRenderer {
                 });
 
                 const typeArr = Array.isArray(slotTypes) ? slotTypes : [slotTypes];
-
-                // Slot border color based on primary type
                 const slotBorderColor = this.getSlotBorderColor(typeArr[0]);
 
-                // Slot background with industry-type colored border
+                // Charcoal slot square
                 slotGroup.appendChild(this.createElement('rect', {
                     x: sx, y: sy,
                     width: this.citySlotSize, height: this.citySlotSize,
-                    rx: 4, ry: 4,
-                    fill: 'rgba(0,0,0,0.5)',
+                    rx: 3, ry: 3,
+                    fill: '#3b342a',
+                    'fill-opacity': '0.95',
                     stroke: slotBorderColor,
-                    'stroke-width': '1.5',
-                    'stroke-opacity': typeArr.length > 1 ? '0.5' : '0.7',
+                    'stroke-width': typeArr.length > 1 ? '0.75' : '1',
+                    'stroke-opacity': typeArr.length > 1 ? '0.55' : '0.85',
                 }));
 
                 const boardKey = `${cityId}_${idx}`;
@@ -462,32 +371,27 @@ class BoardRenderer {
 
                 if (builtTile) {
                     this.drawBuiltIndustryTile(slotGroup, sx, sy, builtTile);
+                } else if (typeArr.length === 1) {
+                    const iconG = this.getIndustryIcon(typeArr[0], 13);
+                    iconG.setAttribute('transform', `translate(${sx + this.citySlotSize / 2}, ${sy + this.citySlotSize / 2})`);
+                    iconG.setAttribute('opacity', '0.55');
+                    slotGroup.appendChild(iconG);
                 } else {
-                    // Show slot type indicators with SVG icons
-                    if (typeArr.length === 1) {
-                        // Single type: show icon
-                        const iconG = this.getIndustryIcon(typeArr[0], 13);
-                        iconG.setAttribute('transform', `translate(${sx + this.citySlotSize/2}, ${sy + this.citySlotSize/2})`);
-                        iconG.setAttribute('opacity', '0.45');
-                        slotGroup.appendChild(iconG);
-                    } else {
-                        // Multiple types: show abbreviations with better contrast
-                        const typeStr = typeArr.map(t => {
-                            const d = INDUSTRY_DISPLAY[t];
-                            return d ? d.shortName[0] : '?';
-                        }).join('/');
+                    const typeStr = typeArr.map(t => {
+                        const d = INDUSTRY_DISPLAY[t];
+                        return d ? d.shortName[0] : '?';
+                    }).join('/');
 
-                        const iconText = this.createElement('text', {
-                            x: sx + this.citySlotSize / 2,
-                            y: sy + this.citySlotSize / 2,
-                            class: 'slot-icon',
-                            'font-size': '7',
-                            fill: 'rgba(255,255,255,0.5)',
-                            'dominant-baseline': 'central',
-                        });
-                        iconText.textContent = typeStr;
-                        slotGroup.appendChild(iconText);
-                    }
+                    const iconText = this.createElement('text', {
+                        x: sx + this.citySlotSize / 2,
+                        y: sy + this.citySlotSize / 2,
+                        class: 'slot-icon',
+                        'font-size': '7.5',
+                        fill: 'rgba(240,228,200,0.65)',
+                        'dominant-baseline': 'central',
+                    });
+                    iconText.textContent = typeStr;
+                    slotGroup.appendChild(iconText);
                 }
 
                 g.appendChild(slotGroup);
@@ -499,146 +403,113 @@ class BoardRenderer {
         this.svg.appendChild(cityGroup);
     }
 
+
     drawBuiltIndustryTile(parent, x, y, tile) {
         const s = this.citySlotSize;
-        const display = INDUSTRY_DISPLAY[tile.type];
         const playerColor = this.state.players[tile.playerId].color;
 
-        // Outer glow for player color — makes tiles visually prominent
+        // Drop shadow
         parent.appendChild(this.createElement('rect', {
-            x: x - 2, y: y - 2,
-            width: s + 4, height: s + 4,
-            rx: 6, ry: 6,
-            fill: 'none',
-            stroke: playerColor,
-            'stroke-width': 2,
-            'stroke-opacity': tile.flipped ? '0.3' : '0.55',
-            filter: `drop-shadow(0 0 3px ${playerColor})`,
+            x: x + 1, y: y + 2,
+            width: s, height: s,
+            rx: 3, ry: 3,
+            fill: 'rgba(26,18,8,0.45)',
         }));
 
-        // Tile background with player color
+        // Tile body in the owner's colour
         parent.appendChild(this.createElement('rect', {
-            x, y, width: s, height: s,
-            rx: 4, ry: 4,
-            fill: tile.flipped
-                ? 'url(#tileFlippedBg)'
-                : playerColor,
-            stroke: tile.flipped ? '#5aaa5a' : 'rgba(255,255,255,0.25)',
-            'stroke-width': tile.flipped ? 1.5 : 1,
-            opacity: tile.flipped ? 0.92 : 1,
+            x, y,
+            width: s, height: s,
+            rx: 3, ry: 3,
+            fill: playerColor,
+            stroke: 'rgba(20,14,6,0.65)',
+            'stroke-width': 1,
             class: 'built-tile' + (tile.flipped ? ' flipped' : ''),
         }));
 
-        // Shine highlight at top of tile
-        parent.appendChild(this.createElement('rect', {
-            x: x + 2, y: y + 2,
-            width: s - 4, height: 4,
-            rx: 2, ry: 2,
-            fill: 'rgba(255,255,255,0.2)',
+        // Black top band (both faces of every physical tile carry it)
+        const bandH = 12;
+        parent.appendChild(this.createElement('path', {
+            d: `M${x},${y + 3} Q${x},${y} ${x + 3},${y} L${x + s - 3},${y} Q${x + s},${y} ${x + s},${y + 3} L${x + s},${y + bandH} L${x},${y + bandH} Z`,
+            fill: tile.flipped ? '#241c14' : '#17130e',
         }));
 
-        // Diagonal hatch overlay for sold/flipped tiles — makes the state
-        // change readable at a glance, not just a color swap.
-        if (tile.flipped) {
-            parent.appendChild(this.createElement('rect', {
-                x, y, width: s, height: s,
-                rx: 4, ry: 4,
-                fill: 'url(#tileFlippedHatch)',
-            }));
-        }
-
-        // Level number — larger and bolder
+        // Level numeral inside the black band
         const levelText = this.createElement('text', {
-            x: x + 4, y: y + 10,
+            x: x + 4.5, y: y + 9.5,
             'font-size': '9',
-            fill: tile.flipped ? '#9aea9a' : 'white',
-            'font-weight': '800',
+            fill: '#e8dcbc',
+            'font-weight': '700',
             'font-family': 'Cinzel, serif',
         });
         levelText.textContent = tile.tileData.level;
         parent.appendChild(levelText);
 
-        // Level pips — small progress dots under the level number (capped
-        // at 4 for legibility at this tile size).
-        const pipCount = Math.min(tile.tileData.level, 4);
-        const pipTrack = Math.min(4, Math.max(pipCount, 2));
-        for (let i = 0; i < pipTrack; i++) {
-            parent.appendChild(this.createElement('circle', {
-                cx: x + 4 + i * 3.5, cy: y + 13,
-                r: 1,
-                fill: i < pipCount ? (tile.flipped ? '#9aea9a' : 'rgba(255,255,255,0.9)') : 'rgba(255,255,255,0.25)',
-            }));
-        }
-
-        // Industry SVG icon in center — larger
-        const iconG = this.getIndustryIcon(tile.type, 12);
-        iconG.setAttribute('transform', `translate(${x + s/2}, ${y + s/2 + 2})`);
-        if (tile.flipped) {
-            iconG.setAttribute('opacity', '0.8');
-        }
+        // Industry icon centred on the coloured field
+        const iconG = this.getIndustryIcon(tile.type, 11);
+        iconG.setAttribute('transform', `translate(${x + s / 2}, ${y + bandH + (s - bandH) / 2 - 2})`);
+        iconG.setAttribute('opacity', '0.85');
         parent.appendChild(iconG);
 
-        // VP badge if flipped — bigger, clearer, with a small burst ring
-        if (tile.flipped) {
-            parent.appendChild(this.createElement('circle', {
-                cx: x + s - 5, cy: y + s - 5, r: 7.5,
-                fill: 'none',
-                stroke: '#c9a84c',
-                'stroke-width': 0.75,
-                'stroke-opacity': 0.5,
-            }));
-            parent.appendChild(this.createElement('circle', {
-                cx: x + s - 5, cy: y + s - 5, r: 6,
-                fill: '#c9a84c',
-                stroke: '#8a6020',
-                'stroke-width': 1,
-                filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))',
-            }));
-            const vpText = this.createElement('text', {
-                x: x + s - 5, y: y + s - 2,
-                'text-anchor': 'middle',
-                'font-size': '7',
-                fill: '#1a1510',
-                'font-weight': '800',
-            });
-            vpText.textContent = tile.tileData.vp;
-            parent.appendChild(vpText);
-        }
-
-        // Resource cubes — 2-face isometric-style block (top face + shaded
-        // side face) instead of a flat square.
-        if (!tile.flipped && tile.resourceCubes > 0) {
-            const cubeSize = 5;
+        if (!tile.flipped) {
+            // Resource cubes along the bottom edge
+            const cubeSize = 4;
             for (let i = 0; i < tile.resourceCubes; i++) {
-                const cx = x + s - 5 - (i % 3) * 6;
-                const cy = y + s - 5 - Math.floor(i / 3) * 6;
-                let topColor = '#777';
-                let sideColor = '#444';
+                const cx = x + s - 4 - (i % 4) * (cubeSize + 1);
+                const cy = y + s - 4;
+                let topColor = '#777', sideColor = '#444';
                 if (tile.type === INDUSTRY_TYPES.COAL_MINE) { topColor = '#4a4a4a'; sideColor = '#1a1a1a'; }
                 else if (tile.type === INDUSTRY_TYPES.IRON_WORKS) { topColor = '#e89030'; sideColor = '#a05800'; }
                 else if (tile.type === INDUSTRY_TYPES.BREWERY) { topColor = '#e0c860'; sideColor = '#a08010'; }
 
                 const half = cubeSize / 2;
-                // Side face (shaded, offset down-right to suggest depth)
                 parent.appendChild(this.createElement('polygon', {
-                    points: `${cx - half + 1},${cy + half} ${cx + half},${cy + half} ${cx + half + 1},${cy + half + 1.5} ${cx - half + 2},${cy + half + 1.5}`,
+                    points: `${cx - half + 0.5},${cy + half} ${cx + half},${cy + half} ${cx + half + 1},${cy + half + 1.2} ${cx - half + 1.5},${cy + half + 1.2}`,
                     fill: sideColor,
                     class: 'resource-cube',
                 }));
-                // Top face
                 parent.appendChild(this.createElement('rect', {
                     x: cx - half, y: cy - half,
                     width: cubeSize, height: cubeSize,
-                    rx: 1, ry: 1,
+                    rx: 0.8, ry: 0.8,
                     fill: topColor,
-                    stroke: 'rgba(255,255,255,0.4)',
+                    stroke: 'rgba(255,255,255,0.35)',
                     'stroke-width': 0.5,
                     class: 'resource-cube',
-                    filter: `drop-shadow(0 1px 1px ${sideColor})`,
                 }));
             }
+        } else {
+            // Flipped face: VP shield bottom-left, income arrow bottom-right
+            parent.appendChild(this.createElement('rect', {
+                x: x + 2, y: y + s - 10.5,
+                width: 13, height: 8.5,
+                rx: 2, ry: 2,
+                fill: '#241c14',
+                stroke: '#c9a84c',
+                'stroke-width': 0.75,
+            }));
+            const vpText = this.createElement('text', {
+                x: x + 8.5, y: y + s - 4.2,
+                'text-anchor': 'middle',
+                'font-size': '7',
+                fill: '#e7c766',
+                'font-weight': '800',
+            });
+            vpText.textContent = tile.tileData.vp;
+            parent.appendChild(vpText);
+
+            const incText = this.createElement('text', {
+                x: x + s - 3, y: y + s - 4,
+                'text-anchor': 'end',
+                'font-size': '6.5',
+                fill: 'rgba(255,255,255,0.85)',
+                'font-weight': '600',
+            });
+            incText.textContent = '+' + tile.tileData.income;
+            parent.appendChild(incText);
         }
     }
+
 
     // ========================================================================
     // Merchants
@@ -656,30 +527,47 @@ class BoardRenderer {
                 transform: `translate(${merch.x}, ${merch.y})`
             });
 
-            const w = 60;
-            const h = 30 + merch.slots * 12;
+            const w = 66;
+            const h = 34 + merch.slots * 13;
 
-            // Background
+            // Merchant building — tan block with a dark roof line
             g.appendChild(this.createElement('rect', {
-                x: -w / 2, y: -12,
+                x: -w / 2 - 1, y: -15,
+                width: w + 2, height: 8,
+                rx: 3, ry: 3,
+                fill: '#5a432c',
+                filter: 'url(#cardShadow)',
+            }));
+            g.appendChild(this.createElement('rect', {
+                x: -w / 2, y: -9,
                 width: w, height: h,
+                rx: 4, ry: 4,
+                fill: '#cbb28a',
+                stroke: '#6a5138',
+                'stroke-width': 1.25,
                 class: 'merchant-bg',
             }));
 
             // Name
             const nameText = this.createElement('text', {
-                x: 0, y: 0,
+                x: 0, y: 2.5,
                 class: 'merchant-label',
-                'font-size': '8',
+                'font-size': '8.5',
+                'font-weight': '700',
+                fill: '#33261a',
             });
             nameText.textContent = merch.name;
             g.appendChild(nameText);
 
-            // Merchant slots
+            // Merchant slots with beer barrel spaces
             for (let i = 0; i < merch.slots; i++) {
-                g.appendChild(this.createElement('rect', {
-                    x: -20, y: 5 + i * 14,
-                    width: 40, height: 11,
+                const cy = 12 + i * 13;
+                g.appendChild(this.createElement('circle', {
+                    cx: -18, cy,
+                    r: 4.5,
+                    fill: 'none',
+                    stroke: '#6a5138',
+                    'stroke-width': 0.9,
                     class: 'merchant-slot',
                 }));
 
@@ -688,41 +576,48 @@ class BoardRenderer {
                     if (matchingTiles[i]) {
                         const mt = matchingTiles[i];
                         const isBlank = mt.buys === 'blank';
-                        const buyText = this.createElement('text', {
-                            x: 0, y: 13 + i * 14,
-                            'text-anchor': 'middle',
-                            'font-size': '6',
-                            fill: isBlank ? '#555' : '#b87333',
-                        });
-                        buyText.textContent = isBlank ? '—' :
-                            (mt.buys === 'any' ? 'Any' : INDUSTRY_DISPLAY[mt.buys].shortName);
-                        g.appendChild(buyText);
-
                         if (mt.hasBeer) {
                             g.appendChild(this.createElement('circle', {
-                                cx: 14, cy: 11 + i * 14,
-                                r: 3,
-                                fill: '#c9a84c',
-                                stroke: '#a08030',
-                                'stroke-width': 0.5,
+                                cx: -18, cy,
+                                r: 3.6,
+                                fill: '#d9b23c',
+                                stroke: '#8a6a20',
+                                'stroke-width': 0.75,
+                            }));
+                            g.appendChild(this.createElement('circle', {
+                                cx: -19.5, cy: cy - 1.5,
+                                r: 1,
+                                fill: 'rgba(255,255,255,0.55)',
                             }));
                         }
+
+                        const buyText = this.createElement('text', {
+                            x: -9, y: cy + 2.7,
+                            'text-anchor': 'start',
+                            'font-size': '7.5',
+                            fill: isBlank ? '#8a7458' : '#4a3820',
+                            'letter-spacing': '0.3',
+                        });
+                        buyText.textContent = isBlank ? '\u2014 blank \u2014' :
+                            (mt.buys === 'any' ? 'Buys: Any' : 'Buys: ' + INDUSTRY_DISPLAY[mt.buys].shortName);
+                        g.appendChild(buyText);
                     }
                 }
             }
 
-            // Bonus indicator
+            // Beer bonus glyph
             const bonusText = this.createElement('text', {
-                x: 0, y: h - 8,
+                x: 0, y: h - 4,
                 'text-anchor': 'middle',
-                'font-size': '6',
-                fill: '#888',
+                'font-size': '7',
+                'font-weight': '700',
+                fill: '#6a4a1e',
             });
             let bonusStr = '';
             if (merch.bonusType === 'vp') bonusStr = `+${merch.bonusAmount} VP`;
             else if (merch.bonusType === 'money') bonusStr = `+£${merch.bonusAmount}`;
-            else if (merch.bonusType === 'income') bonusStr = `+${merch.bonusAmount} Inc`;
-            else if (merch.bonusType === 'develop') bonusStr = `Free Dev`;
+            else if (merch.bonusType === 'income') bonusStr = `+${merch.bonusAmount} income`;
+            else if (merch.bonusType === 'develop') bonusStr = `Free Develop`;
             bonusText.textContent = bonusStr;
             g.appendChild(bonusText);
 
@@ -731,6 +626,7 @@ class BoardRenderer {
 
         this.svg.appendChild(merchantGroup);
     }
+
 
     // ========================================================================
     // Brewery Farms
@@ -746,20 +642,32 @@ class BoardRenderer {
                 transform: `translate(${farm.x}, ${farm.y})`
             });
 
+            // Farmstead — small tan block with dark roof
             g.appendChild(this.createElement('rect', {
-                x: -14, y: -14,
+                x: -16, y: -17,
+                width: 32, height: 7,
+                rx: 2.5, ry: 2.5,
+                fill: '#5a432c',
+                filter: 'url(#cardShadow)',
+            }));
+            g.appendChild(this.createElement('rect', {
+                x: -14, y: -11,
                 width: 28, height: 28,
+                rx: 4, ry: 4,
                 class: 'brewery-farm-bg',
+                fill: '#cbb28a',
+                stroke: '#6a5138',
+                'stroke-width': 1.25,
             }));
 
             const builtTile = this.state ? this.state.breweryFarmTiles[farmId] : null;
             if (builtTile) {
-                this.drawBuiltIndustryTile(g, -11, -11, builtTile);
+                this.drawBuiltIndustryTile(g, -11, -8, builtTile);
             } else {
-                // Show brewery icon
-                const iconG = this.getIndustryIcon(INDUSTRY_TYPES.BREWERY, 14);
-                iconG.setAttribute('transform', 'translate(0, 0)');
-                iconG.setAttribute('opacity', '0.4');
+                // Ink silhouette: the farmstead backing is tan, not charcoal.
+                const iconG = this.getIndustryIcon(INDUSTRY_TYPES.BREWERY, 13, 'silhouette-dark');
+                iconG.setAttribute('transform', 'translate(0, 3)');
+                iconG.setAttribute('opacity', '0.75');
                 g.appendChild(iconG);
             }
 
@@ -768,6 +676,7 @@ class BoardRenderer {
 
         this.svg.appendChild(farmGroup);
     }
+
 
     // ========================================================================
     // Built Links with enhanced styling
@@ -790,61 +699,55 @@ class BoardRenderer {
 
             const drawBuiltSegment = (seg) => {
                 if (link.type === 'canal') {
-                    // Built canal: solid thick blue with player color overlay
-                    // Outer blue glow (water base)
+                    // Built canal: blue waterway carrying the owner's colour
                     linkGroup.appendChild(this.createElement('line', {
                         ...seg,
-                        stroke: '#4499cc',
-                        'stroke-width': 10,
+                        stroke: '#7ba7bd',
+                        'stroke-width': 9,
                         'stroke-linecap': 'round',
-                        'stroke-opacity': '0.3',
+                        'stroke-opacity': '0.55',
                         class: 'connection-line built',
                     }));
-                    // Mid blue layer
                     linkGroup.appendChild(this.createElement('line', {
                         ...seg,
-                        stroke: '#3388bb',
-                        'stroke-width': 6,
-                        'stroke-linecap': 'round',
-                        'stroke-opacity': '0.5',
-                        class: 'connection-line built',
-                    }));
-                    // Player color overlay — bright center
-                    linkGroup.appendChild(this.createElement('line', {
-                        ...seg,
-                        stroke: playerColor,
-                        'stroke-width': 3,
+                        stroke: '#4a7d9d',
+                        'stroke-width': 5.5,
                         'stroke-linecap': 'round',
                         'stroke-opacity': '0.85',
                         class: 'connection-line built',
                     }));
-                } else {
-                    // Built rail: dark with player color, with tie pattern
-                    // Outer dark ballast bed
-                    linkGroup.appendChild(this.createElement('line', {
-                        ...seg,
-                        stroke: '#333',
-                        'stroke-width': 7,
-                        'stroke-linecap': 'round',
-                        'stroke-opacity': '0.7',
-                        class: 'connection-line built',
-                    }));
-                    // Player color rail line
                     linkGroup.appendChild(this.createElement('line', {
                         ...seg,
                         stroke: playerColor,
-                        'stroke-width': 4,
+                        'stroke-width': 2.2,
                         'stroke-linecap': 'round',
-                        'stroke-opacity': '0.75',
+                        'stroke-opacity': '0.95',
                         class: 'connection-line built',
                     }));
-                    // Tie/sleeper pattern over player color
+                } else {
+                    // Built rail: dark permanent way in the owner's colour
                     linkGroup.appendChild(this.createElement('line', {
                         ...seg,
-                        stroke: 'rgba(0,0,0,0.5)',
-                        'stroke-width': 3,
+                        stroke: '#3a332a',
+                        'stroke-width': 7,
+                        'stroke-linecap': 'round',
+                        'stroke-opacity': '0.9',
+                        class: 'connection-line built',
+                    }));
+                    linkGroup.appendChild(this.createElement('line', {
+                        ...seg,
+                        stroke: playerColor,
+                        'stroke-width': 3.6,
+                        'stroke-linecap': 'round',
+                        'stroke-opacity': '0.95',
+                        class: 'connection-line built',
+                    }));
+                    linkGroup.appendChild(this.createElement('line', {
+                        ...seg,
+                        stroke: 'rgba(20,14,8,0.45)',
+                        'stroke-width': 5,
                         'stroke-linecap': 'butt',
-                        'stroke-dasharray': '3 8',
+                        'stroke-dasharray': '1.5 6',
                         class: 'connection-line built',
                     }));
                 }
@@ -860,30 +763,31 @@ class BoardRenderer {
                 drawBuiltSegment({ x1: pos1.x, y1: pos1.y, x2: pos2.x, y2: pos2.y });
             }
 
-            // Link type indicator at midpoint
+            // Owner badge at the midpoint
             const midX = (pos1.x + pos2.x) / 2;
             const midY = (pos1.y + pos2.y) / 2;
 
-            // Small colored circle with type indicator
             linkGroup.appendChild(this.createElement('circle', {
-                cx: midX, cy: midY, r: 6,
+                cx: midX, cy: midY, r: 5.5,
                 fill: playerColor,
-                stroke: 'rgba(255,255,255,0.3)',
-                'stroke-width': 0.5,
+                stroke: '#241a10',
+                'stroke-width': 1,
             }));
             const typeIcon = this.createElement('text', {
-                x: midX, y: midY + 3,
+                x: midX, y: midY + 2.8,
                 'text-anchor': 'middle',
                 'font-size': '7',
-                fill: 'white',
+                'font-weight': '700',
+                fill: '#fff',
                 'pointer-events': 'none',
             });
-            typeIcon.textContent = link.type === 'canal' ? '~' : '#';
+            typeIcon.textContent = link.type === 'canal' ? '~' : '\u2261';
             linkGroup.appendChild(typeIcon);
         }
 
         this.svg.appendChild(linkGroup);
     }
+
 
     // ========================================================================
     // Highlighting for valid placements
@@ -948,11 +852,14 @@ class BoardRenderer {
         this.state = gameState;
         // Remove all dynamic layers first, then re-add in the correct draw order so
         // that built links always render on top of cities, merchants, and brewery farms.
+        // Connections are redrawn too: their era dimming depends on this.state.era.
+        this.svg.querySelector('#connections-layer')?.remove();
         this.svg.querySelector('#brewery-farms-layer')?.remove();
         this.svg.querySelector('#merchants-layer')?.remove();
         this.svg.querySelector('#cities-layer')?.remove();
         this.svg.querySelector('#built-links-layer')?.remove();
 
+        this.drawConnections();
         this.drawBreweryFarms();
         this.drawMerchants();
         this.drawCities();

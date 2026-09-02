@@ -1,22 +1,25 @@
 /* ============================================================================
    Brass: Birmingham - Styles
-   Victorian Industrial Dark Theme — Visual & UX Overhaul
+   Aged parchment & brass theme — matched to the original day-side board
    ============================================================================ */
 
 :root {
-    /* Primary palette - deepened for atmosphere */
-    --bg-dark: #16120d;
-    --bg-medium: #262018;
-    --bg-light: #36301f;
-    --bg-card: #2d2519;
-    --text-primary: #e8d5b7;
-    --text-secondary: #b8a68e;
-    --text-muted: #8a7a68;
+    /* Primary palette — warm walnut leather around a parchment board */
+    --bg-dark: #1c140d;
+    --bg-medium: #2b2015;
+    --bg-light: #3a2c1c;
+    --bg-card: #efe4c6;
+    --parchment: #e9dcba;
+    --parchment-dark: #cdb489;
+    --text-primary: #ecdcbc;
+    --text-secondary: #c2ab8e;
+    --text-muted: #93805f;
     --accent-gold: #c9a84c;
     --accent-copper: #b87333;
     --accent-brass: #d4a843;
-    --border-dark: #4a3c2e;
-    --border-light: #6a5a48;
+    --ink: #33261a;
+    --border-dark: #4a3826;
+    --border-light: #6a543a;
 
     /* Player colors */
     --player-red: #c0392b;
@@ -94,17 +97,17 @@ h1, h2, h3 {
             0deg,
             transparent,
             transparent 2px,
-            rgba(201,168,76,0.015) 2px,
-            rgba(201,168,76,0.015) 4px
+            rgba(201,168,76,0.02) 2px,
+            rgba(201,168,76,0.02) 4px
         ),
         repeating-linear-gradient(
             90deg,
             transparent,
             transparent 2px,
-            rgba(201,168,76,0.015) 2px,
-            rgba(201,168,76,0.015) 4px
+            rgba(201,168,76,0.02) 2px,
+            rgba(201,168,76,0.02) 4px
         ),
-        radial-gradient(ellipse at 30% 40%, #2a2018 0%, #1a1510 60%, #12100b 100%);
+        radial-gradient(ellipse at 30% 40%, #332616 0%, #221a10 60%, #171008 100%);
 }
 
 .setup-container {
@@ -525,25 +528,19 @@ h1, h2, h3 {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 8px;
+    padding: 10px;
     min-width: 0;
-    /* Subtle sepia/aged-map board texture overlay */
+    /* Warm walnut leather table around the parchment map */
     background:
-        repeating-linear-gradient(
-            0deg,
-            transparent,
-            transparent 40px,
-            rgba(180,140,60,0.015) 40px,
-            rgba(180,140,60,0.015) 41px
-        ),
+        radial-gradient(ellipse at 50% 42%, rgba(120,86,44,0.22) 0%, rgba(28,20,12,0.65) 100%),
         repeating-linear-gradient(
             90deg,
-            transparent,
-            transparent 40px,
-            rgba(180,140,60,0.015) 40px,
-            rgba(180,140,60,0.015) 41px
+            rgba(0,0,0,0.05) 0px,
+            rgba(0,0,0,0.05) 2px,
+            transparent 2px,
+            transparent 7px
         ),
-        radial-gradient(ellipse at 50% 50%, rgba(60,50,30,0.3) 0%, rgba(20,16,10,0.5) 100%),
+        linear-gradient(160deg, #332415 0%, #241a10 100%),
         var(--bg-dark);
     position: relative;
 }
@@ -964,22 +961,26 @@ h1, h2, h3 {
     align-items: flex-start;
 }
 
-/* Card Styles - Redesigned: larger, richer */
+/* Card Styles - cream card stock with dark ink, like the physical deck */
 .card {
     width: var(--card-width);
     min-width: var(--card-width);
     height: var(--card-height);
-    border-radius: 6px;
+    border-radius: 7px;
     background:
         repeating-linear-gradient(
             45deg,
             transparent,
             transparent 3px,
-            rgba(201,168,76,0.015) 3px,
-            rgba(201,168,76,0.015) 6px
+            rgba(140,110,60,0.03) 3px,
+            rgba(140,110,60,0.03) 6px
         ),
-        linear-gradient(160deg, #352c1e 0%, #2a2018 50%, #221a12 100%);
-    border: 2px solid var(--border-dark);
+        linear-gradient(165deg, #f2e8cd 0%, #e9dcba 55%, #ddcda6 100%);
+    border: 1px solid #a89468;
+    box-shadow:
+        inset 0 0 0 3px rgba(255,255,255,0.35),
+        inset 0 0 12px rgba(160,130,80,0.18),
+        0 3px 6px rgba(0,0,0,0.5);
     cursor: pointer;
     transition: all 0.2s;
     display: flex;
@@ -992,7 +993,6 @@ h1, h2, h3 {
     position: relative;
     user-select: none;
     overflow: hidden;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 2px 4px rgba(0,0,0,0.4);
 }
 
 .card::before {
@@ -1001,20 +1001,23 @@ h1, h2, h3 {
     top: 0;
     left: 0;
     right: 0;
-    height: 4px;
-    border-radius: 4px 4px 0 0;
+    height: 5px;
+    border-radius: 6px 6px 0 0;
 }
 
 .card:hover {
     transform: translateY(-8px);
     border-color: var(--accent-gold);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.5), 0 0 10px rgba(201,168,76,0.2);
+    box-shadow:
+        inset 0 0 0 3px rgba(255,255,255,0.35),
+        0 10px 22px rgba(0,0,0,0.55),
+        0 0 12px rgba(201,168,76,0.35);
 }
 
 .card.selected {
     transform: translateY(-12px);
     border-color: var(--accent-gold);
-    box-shadow: 0 10px 24px rgba(201,168,76,0.4), 0 0 15px rgba(201,168,76,0.3);
+    box-shadow: 0 10px 24px rgba(201,168,76,0.45), 0 0 15px rgba(201,168,76,0.35);
 }
 
 /* Card selection mode: valid cards get pulse */
@@ -1044,7 +1047,7 @@ h1, h2, h3 {
     font-size: 9px;
     text-transform: uppercase;
     letter-spacing: 1.5px;
-    color: var(--text-muted);
+    color: #8a7452;
     margin-bottom: 2px;
     font-variant: small-caps;
 }
@@ -1052,8 +1055,8 @@ h1, h2, h3 {
 .card-name {
     font-family: 'Cinzel', serif;
     font-size: 11px;
-    font-weight: 600;
-    color: var(--text-primary);
+    font-weight: 700;
+    color: var(--ink);
     line-height: 1.2;
 }
 
@@ -1063,41 +1066,41 @@ h1, h2, h3 {
 }
 
 /* Card type-specific colored top borders */
-.card.location-card::before { background: #5a8a5a; }
-.card.industry-card::before { background: #8a5a5a; }
+.card.location-card::before { background: linear-gradient(90deg, #6a9a6a, #4a7a4a); }
+.card.industry-card::before { background: linear-gradient(90deg, #b05040, #8a3830); }
 .card.wild-card::before { background: linear-gradient(90deg, var(--accent-gold), var(--accent-copper), var(--accent-gold)); }
 
 .card.location-card {
-    border-color: #3a5a3a;
+    border-color: #9aa87e;
     background-image:
         radial-gradient(circle at 50% 30%, var(--region-tint, transparent) 0%, transparent 70%),
         repeating-linear-gradient(
             45deg,
             transparent,
             transparent 3px,
-            rgba(201,168,76,0.015) 3px,
-            rgba(201,168,76,0.015) 6px
+            rgba(140,110,60,0.03) 3px,
+            rgba(140,110,60,0.03) 6px
         ),
-        linear-gradient(160deg, #352c1e 0%, #2a2018 50%, #221a12 100%);
+        linear-gradient(165deg, #f0e9cf 0%, #e6dcba 55%, #dccca4 100%);
 }
 
 .card.location-card:hover {
-    border-color: #6a9a6a;
+    border-color: #7a9a6a;
 }
 
 .card.industry-card {
-    border-color: #5a3a3a;
+    border-color: #c0a08a;
 }
 
 .card.industry-card:hover {
-    border-color: #9a6a6a;
+    border-color: #b07a5a;
 }
 
 .card.wild-card {
     border-color: var(--accent-gold);
     background:
-        repeating-conic-gradient(from 0deg, rgba(201,168,76,0.16) 0deg 15deg, transparent 15deg 30deg),
-        linear-gradient(135deg, var(--bg-card) 0%, #3a3020 50%, var(--bg-card) 100%);
+        repeating-conic-gradient(from 0deg, rgba(201,168,76,0.14) 0deg 15deg, transparent 15deg 30deg),
+        radial-gradient(circle at 50% 40%, #f5ead0 0%, #e2d1a8 100%);
 }
 
 /* Colored corner ribbon on industry cards, tinted per industry type via
@@ -1332,12 +1335,7 @@ h1, h2, h3 {
 
 /* Board background */
 .board-bg {
-    fill: #2a2a1f;
-}
-
-.board-water {
-    fill: #1a2a3a;
-    opacity: 0.3;
+    fill: #e9dcba;
 }
 
 /* Connections */
@@ -1347,42 +1345,10 @@ h1, h2, h3 {
     transition: stroke-width 0.2s;
 }
 
-.connection-line:hover {
-    stroke-width: 6;
-}
-
-.connection-line.canal {
-    stroke: #4488aa;
-    stroke-dasharray: none;
-}
-
-.connection-line.rail {
-    stroke: #666;
-    stroke-dasharray: 8 4;
-}
-
-.connection-line.canal-only {
-    stroke: #4488aa;
-}
-
-.connection-line.rail-only {
-    stroke: #888;
-    stroke-dasharray: 8 4;
-}
-
-.connection-line.both {
-    stroke: #4488aa;
-}
-
-.connection-line.built {
-    stroke-width: 5;
-    filter: none;
-}
-
 .connection-line.highlight {
-    stroke: var(--accent-gold);
-    stroke-width: 7;
-    filter: drop-shadow(0 0 4px rgba(201,168,76,0.6));
+    stroke: var(--accent-gold) !important;
+    stroke-width: 7 !important;
+    filter: drop-shadow(0 0 4px rgba(201,168,76,0.7));
 }
 
 /* City nodes */
@@ -1390,31 +1356,24 @@ h1, h2, h3 {
     cursor: pointer;
 }
 
-.city-bg {
-    rx: 8;
-    ry: 8;
-    stroke-width: 2;
-    transition: all 0.2s;
-}
-
 .city-group:hover .city-bg {
     stroke: var(--accent-gold);
-    filter: drop-shadow(0 0 6px rgba(201,168,76,0.4));
+    filter: drop-shadow(0 0 6px rgba(201,168,76,0.55));
 }
 
 .city-label {
     font-family: 'Cinzel', serif;
     font-size: 10px;
-    font-weight: 600;
-    fill: var(--text-primary);
+    font-weight: 700;
+    fill: #f0e4c8;
     text-anchor: middle;
     pointer-events: none;
 }
 
 .city-label-bg {
-    fill: rgba(0,0,0,0.7);
-    rx: 3;
-    ry: 3;
+    fill: #33291e;
+    rx: 4;
+    ry: 4;
 }
 
 /* Industry slots on board */
@@ -1424,15 +1383,7 @@ h1, h2, h3 {
 }
 
 .industry-slot:hover {
-    filter: drop-shadow(0 0 4px rgba(201,168,76,0.5));
-}
-
-.slot-bg {
-    rx: 3;
-    ry: 3;
-    stroke-width: 1;
-    stroke: rgba(255,255,255,0.2);
-    fill: rgba(0,0,0,0.4);
+    filter: drop-shadow(0 0 4px rgba(201,168,76,0.65));
 }
 
 .slot-icon {
@@ -1440,11 +1391,12 @@ h1, h2, h3 {
     text-anchor: middle;
     dominant-baseline: central;
     pointer-events: none;
+    fill: rgba(240,228,200,0.65);
 }
 
 .slot-level {
     font-size: 7px;
-    fill: white;
+    fill: #e8dcbc;
     text-anchor: middle;
     dominant-baseline: central;
     pointer-events: none;
@@ -1452,20 +1404,14 @@ h1, h2, h3 {
 }
 
 /* Built industry tiles on board */
-.built-tile {
-    rx: 3;
-    ry: 3;
-    stroke-width: 2;
-}
-
 .built-tile.flipped {
-    opacity: 0.85;
+    opacity: 1;
 }
 
 /* Resource cubes on tiles */
 .resource-cube {
     stroke-width: 0.5;
-    stroke: rgba(255,255,255,0.3);
+    stroke: rgba(255,255,255,0.35);
 }
 
 .resource-cube.coal { fill: var(--coal-color); }
@@ -1478,27 +1424,26 @@ h1, h2, h3 {
 }
 
 .merchant-bg {
-    fill: #4a3a2a;
-    stroke: var(--accent-copper);
-    stroke-width: 1.5;
-    rx: 6;
-    ry: 6;
+    fill: #cbb28a;
+    stroke: #6a5138;
+    stroke-width: 1.25;
+    rx: 4;
+    ry: 4;
 }
 
 .merchant-label {
     font-family: 'Cinzel', serif;
-    font-size: 9px;
-    fill: var(--accent-copper);
+    font-size: 8.5px;
+    font-weight: 700;
+    fill: #33261a;
     text-anchor: middle;
     pointer-events: none;
 }
 
 .merchant-slot {
-    stroke: var(--accent-copper);
-    stroke-width: 1;
-    fill: rgba(0,0,0,0.3);
-    rx: 2;
-    ry: 2;
+    stroke: #6a5138;
+    stroke-width: 0.9;
+    fill: none;
 }
 
 /* Brewery farm */
@@ -1507,11 +1452,11 @@ h1, h2, h3 {
 }
 
 .brewery-farm-bg {
-    fill: #3a3020;
-    stroke: var(--beer-color);
-    stroke-width: 1;
-    rx: 5;
-    ry: 5;
+    fill: #cbb28a;
+    stroke: #6a5138;
+    stroke-width: 1.25;
+    rx: 4;
+    ry: 4;
 }
 
 /* Link tiles on board */
