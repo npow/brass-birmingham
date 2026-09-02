@@ -51,8 +51,8 @@ class BoardRenderer {
     // SVG Industry Icons
     // ========================================================================
 
-    getIndustryIcon(type, size = 14) {
-        return IndustryIcons.renderElement(type, size, 'silhouette');
+    getIndustryIcon(type, size = 14, variant = 'silhouette') {
+        return IndustryIcons.renderElement(type, size, variant);
     }
 
     // ========================================================================
@@ -255,7 +255,6 @@ class BoardRenderer {
     // Cities with enhanced styling
     // ========================================================================
 
-    // Returns a slot border color for a given industry type
     // Returns a slot border color for a given industry type (ivory/ink tones)
     getSlotBorderColor(type) {
         const slotColors = {
@@ -665,9 +664,10 @@ class BoardRenderer {
             if (builtTile) {
                 this.drawBuiltIndustryTile(g, -11, -8, builtTile);
             } else {
-                const iconG = this.getIndustryIcon(INDUSTRY_TYPES.BREWERY, 13);
+                // Ink silhouette: the farmstead backing is tan, not charcoal.
+                const iconG = this.getIndustryIcon(INDUSTRY_TYPES.BREWERY, 13, 'silhouette-dark');
                 iconG.setAttribute('transform', 'translate(0, 3)');
-                iconG.setAttribute('opacity', '0.5');
+                iconG.setAttribute('opacity', '0.75');
                 g.appendChild(iconG);
             }
 

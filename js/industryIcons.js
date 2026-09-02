@@ -9,30 +9,37 @@
 const IndustryIcons = (() => {
     const SVG_NS = 'http://www.w3.org/2000/svg';
 
-    // Full-color palette used for the 'full' (card) variant.
+    // Full-color palette used for the 'full' (card) variant. Hand cards are
+    // cream stock, so every fill here has to stay legible against parchment.
     const PALETTE = {
-        [INDUSTRY_TYPES.COTTON_MILL]:  { fill: '#e8d9c0', stroke: '#8a7a68' },
-        [INDUSTRY_TYPES.COAL_MINE]:    { fill: '#5a5a5a', stroke: '#888' },
-        [INDUSTRY_TYPES.IRON_WORKS]:   { fill: '#d4760a', stroke: '#a05808', center: '#2d2519' },
-        [INDUSTRY_TYPES.MANUFACTURER]: { fill: '#b8925a', stroke: '#6a5010' },
+        [INDUSTRY_TYPES.COTTON_MILL]:  { fill: '#6f8ea3', stroke: '#3f596b' },
+        [INDUSTRY_TYPES.COAL_MINE]:    { fill: '#5a5a5a', stroke: '#333' },
+        [INDUSTRY_TYPES.IRON_WORKS]:   { fill: '#c06a08', stroke: '#7d4406', center: '#2d2519' },
+        [INDUSTRY_TYPES.MANUFACTURER]: { fill: '#9a7440', stroke: '#5a4210' },
         [INDUSTRY_TYPES.POTTERY]:      { fill: '#c0453a', stroke: '#8a2a20' },
-        [INDUSTRY_TYPES.BREWERY]:      { fill: '#d4a017', stroke: '#a08010' },
+        [INDUSTRY_TYPES.BREWERY]:      { fill: '#b8860b', stroke: '#7a5808' },
     };
 
     // Returns a flat array of { tag, attrs } SVG primitive descriptors for the
     // given industry type, centered on (0,0), sized to fit within `size`.
-    // variant: 'silhouette' (muted, single-tone — for board tiles/empty slots)
+    // variant: 'silhouette' (light single-tone — for dark board slots/tiles)
+    //          'silhouette-dark' (ink single-tone — for tan/parchment backings)
     //          'full' (colored, detailed — for hand cards)
     function getPrimitives(type, size, variant = 'silhouette') {
         const half = size / 2;
         const s = size;
         const silhouette = variant !== 'full';
+        const darkSilhouette = variant === 'silhouette-dark';
         const c = PALETTE[type] || { fill: '#888', stroke: '#555' };
 
-        const mainFill = silhouette ? 'rgba(255,255,255,0.7)' : c.fill;
+        const silhouetteFill = darkSilhouette ? 'rgba(45,32,18,0.75)' : 'rgba(255,255,255,0.7)';
+        const silhouetteFaint = darkSilhouette ? 'rgba(45,32,18,0.35)' : 'rgba(255,255,255,0.3)';
+        const silhouetteDetail = darkSilhouette ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.3)';
+        const silhouetteCore = darkSilhouette ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)';
+        const mainFill = silhouette ? silhouetteFill : c.fill;
         const mainStroke = silhouette ? 'none' : c.stroke;
         const strokeWidth = silhouette ? 0 : 1;
-        const detailStroke = silhouette ? 'rgba(0,0,0,0.3)' : c.stroke;
+        const detailStroke = silhouette ? silhouetteDetail : c.stroke;
 
         switch (type) {
             case INDUSTRY_TYPES.COTTON_MILL:
@@ -64,7 +71,7 @@ const IndustryIcons = (() => {
                 }
                 return [
                     { tag: 'polygon', attrs: { points: points.trim(), fill: mainFill, stroke: mainStroke, 'stroke-width': strokeWidth } },
-                    { tag: 'circle', attrs: { cx: 0, cy: 0, r: r * 0.25, fill: silhouette ? 'rgba(0,0,0,0.5)' : c.center } },
+                    { tag: 'circle', attrs: { cx: 0, cy: 0, r: r * 0.25, fill: silhouette ? silhouetteCore : c.center } },
                 ];
             }
 
@@ -98,7 +105,7 @@ const IndustryIcons = (() => {
             }
 
             default:
-                return [{ tag: 'circle', attrs: { cx: 0, cy: 0, r: half - 2, fill: silhouette ? 'rgba(255,255,255,0.3)' : '#888' } }];
+                return [{ tag: 'circle', attrs: { cx: 0, cy: 0, r: half - 2, fill: silhouette ? silhouetteFaint : '#888' } }];
         }
     }
 

@@ -384,21 +384,31 @@ const MERCHANTS = {
     },
 };
 
-// Merchant tiles per player count, matching the physical tile decks
-// (verified against the TTS implementation). The active set is shuffled and
-// dealt randomly to the merchant slots in play. buys: 'any' = any sellable
-// good; 'blank' = buys nothing (no beer barrel sits beside blank tiles).
+// Merchant tiles per player count. The physical tiles are marked along their
+// top edge with the player counts they are used at, and setup says to "remove
+// all cards and Merchant tiles that show a player count greater than your
+// number of players" — so the decks are nested: the 3p deck is the 2p deck
+// plus 2 tiles, and the 4p deck is the 3p deck plus 2 more (9 tiles, one per
+// merchant space). The active set is shuffled and dealt to the merchant slots
+// in play. buys: 'any' = any sellable good; 'blank' = buys nothing (no beer
+// barrel sits beside a blank tile).
 //
-//   2p: blank x2, any x1, cotton x1, manufacturer x1
-//   3p: blank x3, any x1, cotton x1, manufacturer x1, pottery x1
-//   4p: blank x3, any x1, cotton x3, manufacturer x2
+//   2p (5): blank x2, any x1, cotton x1, manufacturer x1
+//   3p (7): 2p deck + pottery x1, manufacturer x1
+//   4p (9): 3p deck + any x1, cotton x1
+const MERCHANT_TILE_MIX_2P = [
+    'blank', 'blank', 'any', INDUSTRY_TYPES.COTTON_MILL, INDUSTRY_TYPES.MANUFACTURER,
+];
+const MERCHANT_TILE_MIX_3P = [
+    ...MERCHANT_TILE_MIX_2P, INDUSTRY_TYPES.POTTERY, INDUSTRY_TYPES.MANUFACTURER,
+];
+const MERCHANT_TILE_MIX_4P = [
+    ...MERCHANT_TILE_MIX_3P, 'any', INDUSTRY_TYPES.COTTON_MILL,
+];
 const MERCHANT_TILE_MIX = {
-    2: ['blank', 'blank', 'any', INDUSTRY_TYPES.COTTON_MILL, INDUSTRY_TYPES.MANUFACTURER],
-    3: ['blank', 'blank', 'blank', 'any', INDUSTRY_TYPES.COTTON_MILL,
-        INDUSTRY_TYPES.MANUFACTURER, INDUSTRY_TYPES.POTTERY],
-    4: ['blank', 'blank', 'blank', 'any',
-        INDUSTRY_TYPES.COTTON_MILL, INDUSTRY_TYPES.COTTON_MILL, INDUSTRY_TYPES.COTTON_MILL,
-        INDUSTRY_TYPES.MANUFACTURER, INDUSTRY_TYPES.MANUFACTURER],
+    2: MERCHANT_TILE_MIX_2P,
+    3: MERCHANT_TILE_MIX_3P,
+    4: MERCHANT_TILE_MIX_4P,
 };
 
 // ============================================================================
