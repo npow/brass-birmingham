@@ -1851,6 +1851,26 @@ h1, h2, h3 {
     user-select: none;
 }
 
+.card.card-art .card-art-label {
+    position: absolute;
+    z-index: 1;
+    right: 3px;
+    bottom: 4px;
+    left: 3px;
+    padding: 3px 2px;
+    border: 1px solid rgba(232, 213, 183, 0.75);
+    border-radius: 3px;
+    background: rgba(24, 20, 14, 0.9);
+    color: #f4e7c9;
+    font-family: 'Cinzel', serif;
+    font-size: 8px;
+    font-weight: 700;
+    line-height: 1.15;
+    text-align: center;
+    text-shadow: 0 1px 2px #000;
+    pointer-events: none;
+}
+
 /* Keep the selection and validity cues readable over artwork. */
 .card.card-art.invalid-discard img { filter: grayscale(0.75) brightness(0.45); }
 .card.card-art.valid-discard {
