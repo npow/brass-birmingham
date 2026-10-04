@@ -286,7 +286,34 @@ class UIManager {
             const iconMarkup = IndustryIcons.renderMarkup(type, 12, 'full');
             allTiles.forEach(tile => {
                 const cls = tile.used ? 'mat-tile used' : 'mat-tile available';
-                tilesHtml += `<div class="${cls}" data-type="${type}" title="${display.name} Lv${tile.level} - Cost: £${tile.cost}">
+
+                // Cost details (money, coal, iron)
+                const costParts = [`£${tile.cost}`];
+                if (tile.costCoal > 0) costParts.push(`${tile.costCoal} coal`);
+                if (tile.costIron > 0) costParts.push(`${tile.costIron} iron`);
+                const costStr = costParts.join(' + ');
+
+                // Era availability
+                const eraStr = (tile.canalEra && tile.railEra) ? 'Canal & Rail'
+                             : tile.canalEra ? 'Canal only' : 'Rail only';
+
+                // Industry-specific traits
+                let extra = '';
+                if (tile.beersToSell !== null && tile.beersToSell !== undefined) {
+                    extra = ` | Sell: ${tile.beersToSell} beer`;
+                } else if (tile.resourceCubes > 0) {
+                    extra = ` | Produces: ${tile.resourceCubes} cubes`;
+                }
+                if (!tile.canDevelop) {
+                    extra += ' | Cannot develop';
+                }
+
+                const tooltip = `${display.name} Lv${tile.level} (${tile.used ? 'Used' : 'Available'})\n` +
+                                `Cost: ${costStr}\n` +
+                                `Flip: ${tile.vp} VP, +${tile.income} Income${extra}\n` +
+                                `Era: ${eraStr}`;
+
+                tilesHtml += `<div class="${cls}" data-type="${type}" title="${tooltip}">
                     <div class="mat-tile-icon">${iconMarkup}</div>
                     <div class="mat-tile-level">${tile.level}</div>
                 </div>`;
