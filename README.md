@@ -6,7 +6,27 @@ A digital adaptation of the award-winning board game by Roxley Games. Build your
 
 > **Note:** This is an unofficial fan project. [Brass: Birmingham](https://roxley.com/products/brass-birmingham) is designed by Gavan Brown, Matt Tolman, and Martin Wallace, published by Roxley Games. Please support the original by purchasing the physical game.
 
-![Title Screen](screenshots/title.png)
+## Screenshots
+
+<p align="center">
+  <img src="screenshots/preview.gif" alt="Animated preview of the setup screen, Canal and Rail Era boards, build choices, and scoring" width="100%">
+  <br><em>A quick look at setup, both eras, building, and scoring.</em>
+</p>
+
+<p align="center">
+  <img src="screenshots/canal_era.jpg" alt="Full Canal Era game board with placed industry tiles, canal links, cards, markets, and player panels" width="100%">
+  <br><em>Canal Era in play with the bundled board, cards, tile art, and resource cubes.</em>
+</p>
+
+<p align="center">
+  <img src="screenshots/rail_era.jpg" alt="Full Rail Era game board with rail links and higher-level industries" width="100%">
+  <br><em>Rail Era, with a wider network and higher-level industries.</em>
+</p>
+
+<p align="center">
+  <img src="assets/board.jpg" alt="Full Brass: Birmingham board artwork" width="58%">
+  <br><em>The printed board artwork used by the game.</em>
+</p>
 
 ---
 
@@ -21,14 +41,6 @@ Compete as rival entrepreneurs in Birmingham and its surrounding towns. Establis
 **Canal Era (1770-1830)** — Build canals and establish your first industries. Only one tile per location. At the end, all canals and Level I tiles are removed — but Level II+ tiles carry over and score again.
 
 **Rail Era (1830-1870)** — Build railways (requiring coal), expand aggressively with multiple tiles per location, and push for the highest score.
-
-![Canal Era — a develop action in progress](screenshots/canal_era.png)
-
-<p align="center"><em>Canal Era — the develop action modal over the live board</em></p>
-
-![Canal Era — the sell action modal](screenshots/rail_era.png)
-
-<p align="center"><em>Canal Era — selecting built manufacturers to sell goods</em></p>
 
 ---
 
@@ -47,9 +59,13 @@ Choose from six industry types, each with a unique strategic role:
 
 Select what to build, where, and for how much — all costs including coal and iron sourcing are calculated automatically.
 
-![Build modal — choose an industry, see the cost breakdown](screenshots/build_modal.png)
+![Build modal — choose an industry, see the cost breakdown](screenshots/build_modal.jpg)
 
 <p align="center"><em>Build action — choose from available industries at locations matching your cards</em></p>
+
+![Sell modal — choose a built industry and merchant beer](screenshots/sell_modal.jpg)
+
+<p align="center"><em>Sell action — check the goods, beer requirement, and merchant bonus before selling.</em></p>
 
 ---
 
@@ -73,7 +89,7 @@ A **scrollable game log** in the right panel records every action: builds, netwo
 
 Between turns, a **brief animated overlay** shows the next player's name in their color, giving a clear visual break.
 
-![Players panel and game log](screenshots/player_markets.png)
+![Players panel, markets, and game log](screenshots/player_markets.jpg)
 
 <p align="center"><em>Right panel — player stats, markets with current prices, and the game log</em></p>
 
@@ -83,7 +99,7 @@ Between turns, a **brief animated overlay** shows the next player's name in thei
 
 Spend iron to remove low-level tiles from your player mat and access the powerful high-level industries underneath. Optionally develop two tiles at once.
 
-![Develop modal — remove tiles from your mat to unlock stronger ones](screenshots/develop_modal.png)
+![Develop modal — remove tiles from your mat to unlock stronger ones](screenshots/develop_modal.jpg)
 
 <p align="center"><em>Develop action — skip past weak tiles to access Level III+ industries</em></p>
 
@@ -93,9 +109,9 @@ Spend iron to remove low-level tiles from your player mat and access the powerfu
 
 Play location cards to build anywhere on the map, or industry cards to build within your network. Manage your hand carefully — every action costs a card.
 
-Cards show **inline SVG icons** matching each industry type, with colored top borders indicating card type (green for location, red for industry, gold gradient for wild).
+Cards use the included printed faces, with inline SVG artwork as a fallback.
 
-![Hand, actions, and industry mat](screenshots/hand_actions.png)
+![Hand, actions, and industry mat](screenshots/hand_actions.jpg)
 
 <p align="center"><em>Bottom panel — your hand of cards, the seven available actions, and your remaining industry tiles</em></p>
 
@@ -120,10 +136,8 @@ Slots permitting two industries show both icons split on the diagonal.
 ### Bundled Board Artwork
 
 The repository includes the board, industry chips, card faces, and player mat
-under `assets/`. The board art is shown below; the game overlays the changing
-game state on top of it.
-
-![Brass: Birmingham board artwork included with the game](assets/board.jpg)
+under `assets/`. The README gallery above shows the board art in play and as a
+full map.
 
 To use a different board image, replace `assets/board.jpg` locally or point the
 browser at another image:
@@ -168,9 +182,9 @@ resolution, and is saved automatically as you drag.
 
 At the end of each era, score VP from your flipped industry tiles and the links connecting them. Higher-level tiles placed in the Canal Era score in *both* eras.
 
-![Scoring screen at end of Canal Era](screenshots/scoring.png)
+![Rail Era scoring results](screenshots/scoring.jpg)
 
-<p align="center"><em>Canal Era scoring — link VP and industry VP tallied for each player</em></p>
+<p align="center"><em>Era scoring — link VP and industry VP tallied for each player</em></p>
 
 ---
 
@@ -187,7 +201,9 @@ Open [http://localhost:8080](http://localhost:8080) in your browser. No build st
 1. Choose 2-4 players and enter names
 2. Click **Begin Game**
 
-![Setup screen](screenshots/board_start.png)
+![Game setup screen](screenshots/title.jpg)
+
+![The Canal Era board ready for the first turn](screenshots/board_start.jpg)
 
 ### On Your Turn
 
