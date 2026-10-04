@@ -9,8 +9,8 @@ A digital adaptation of the award-winning board game by Roxley Games. Build your
 ## Screenshots
 
 <p align="center">
-  <img src="screenshots/preview.gif" alt="Animated preview of the setup screen, Canal and Rail Era boards, build choices, and scoring" width="100%">
-  <br><em>A quick look at setup, both eras, building, and scoring.</em>
+  <img src="screenshots/preview.gif" alt="Animated preview of setup, labeled hand cards, Canal and Rail Era boards, build choices, and scoring" width="100%">
+  <br><em>A quick look at setup, the labeled card hand, both eras, building, and scoring.</em>
 </p>
 
 <p align="center">

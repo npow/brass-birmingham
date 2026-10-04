@@ -174,7 +174,10 @@ class UIManager {
                 if (card.type === CARD_TYPES.LOCATION) cardEl.classList.add('location-card');
                 else if (card.type === CARD_TYPES.INDUSTRY) cardEl.classList.add('industry-card');
                 else cardEl.classList.add('wild-card');
-                cardEl.innerHTML = `<img src="${art}" alt="${card.name || ''}" draggable="false">`;
+                const artLabel = card.type === CARD_TYPES.LOCATION
+                    ? ''
+                    : `<span class="card-art-label">${card.name || (card.type === CARD_TYPES.WILD_LOCATION ? 'Wild Location' : 'Wild Industry')}</span>`;
+                cardEl.innerHTML = `<img src="${art}" alt="${card.type === CARD_TYPES.LOCATION ? card.name || '' : ''}" draggable="false">${artLabel}`;
                 if (this.selectedCard === idx) cardEl.classList.add('selected');
                 if (this.selectedAction === ACTIONS.SCOUT &&
                         this.pendingData.scoutCards && this.pendingData.scoutCards.includes(idx)) {
