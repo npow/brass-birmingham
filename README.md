@@ -22,13 +22,13 @@ Compete as rival entrepreneurs in Birmingham and its surrounding towns. Establis
 
 **Rail Era (1830-1870)** — Build railways (requiring coal), expand aggressively with multiple tiles per location, and push for the highest score.
 
-![Canal Era — early board with industries and canal links](screenshots/canal_era.png)
+![Canal Era — a develop action in progress](screenshots/canal_era.png)
 
-<p align="center"><em>Canal Era — industries built across the Midlands, canal links connecting the network</em></p>
+<p align="center"><em>Canal Era — the develop action modal over the live board</em></p>
 
-![Rail Era — dense network of rail links and high-level industries](screenshots/rail_era.png)
+![Canal Era — the sell action modal](screenshots/rail_era.png)
 
-<p align="center"><em>Rail Era — railways criss-cross the map as players race toward final scoring</em></p>
+<p align="center"><em>Canal Era — selecting built manufacturers to sell goods</em></p>
 
 ---
 
@@ -101,17 +101,68 @@ Cards show **inline SVG icons** matching each industry type, with colored top bo
 
 ---
 
-### Atmospheric Board
+### The Board
 
-The game board features:
-- **Parchment texture** via SVG noise filters and a radial vignette
-- **Double-line canal** connections (translucent blue water effect)
-- **Rail connections** with track-tie patterns
-- **Geometric SVG icons** on industry slots and built tiles (factory, diamond, gear, crate, vase, barrel)
-- **City nodes** with dark label backdrops, inner shadow depth, and increased region color opacity
-- **VP badges** on flipped tiles, player color strips on built tiles
+The game includes the printed board artwork and also has an original, procedural
+night-time relief map as a fallback:
+
+- **Procedural terrain** — a hill-shaded elevation raster generated in-page, with an industrial haze over the Black Country basin
+- **Region washes** tinting each county, and warm furnace light pooling over every town
+- **Towns on slate plinths** with region-coloured name ribbons, as printed on the board
+- **Engraved industry art** — a spinning mill, pithead winding gear, blast furnace, sawtooth workshop, bottle kiln and cask, rather than abstract glyphs
+- **Canals** as cut waterways and **railways** as ballast with sleeper ties; rivers stay desaturated so they never read as buildable links
+- **A numbered 0–99 score track** running the perimeter of a brass frame
+
+Slots permitting two industries show both icons split on the diagonal.
 
 ---
+
+### Bundled Board Artwork
+
+The repository includes the board, industry chips, card faces, and player mat
+under `assets/`. The board art is shown below; the game overlays the changing
+game state on top of it.
+
+![Brass: Birmingham board artwork included with the game](assets/board.jpg)
+
+To use a different board image, replace `assets/board.jpg` locally or point the
+browser at another image:
+
+```js
+localStorage.brassBoardAsset = 'https://example.com/board.jpg'
+```
+
+The matching chip, card and mat files are already included:
+
+```
+assets/board.jpg              the map
+assets/tiles/<kind>-<n>.jpg   industry chips, e.g. coal-1.jpg, iron-3-flipped.jpg
+assets/cards/<id>.jpg         card faces, keyed by city id or industry id
+assets/player-mat.jpg         the player mat
+```
+
+The printed map carries the towns, routes and merchant buildings, and the game
+draws the changing state on top: placed chips, resource cubes, beer barrels and
+highlights. The locally bundled assets are tracked with the project; browser
+overrides and calibration remain in local storage.
+
+All 27 locations move to measured positions for a retail board, and each
+location's industry spaces are placed using the arrangement the board actually
+prints — Coalbrookdale one space over two, Birmingham two over two, and so on,
+rather than a single row. To adjust the alignment, open the page with
+`?calibrate=1`:
+
+| Input | Effect |
+|-------|--------|
+| drag a town / merchant / brewery | move it onto its printed space |
+| `c` | dump the finished layout as JSON to the console |
+| `r` | reset to the measured defaults |
+
+Positions are stored normalised, so one calibration holds for any image at any
+resolution, and is saved automatically as you drag.
+
+> Board artwork is normally the publisher's copyright. Supplying an image is
+> your call — use art you have the right to use.
 
 ### Era Scoring
 
@@ -174,7 +225,9 @@ This implementation follows the official Brass: Birmingham rulebook:
 
 ## Architecture
 
-Pure HTML/CSS/JS — no build tools, no frameworks, no external images.
+Pure HTML/CSS/JS — no build tools, no frameworks, no dependencies. Board and
+component artwork is bundled under `assets/`; procedural board art remains the
+fallback.
 
 | File | Purpose |
 |------|---------|
@@ -183,7 +236,9 @@ Pure HTML/CSS/JS — no build tools, no frameworks, no external images.
 | `js/gameData.js` | All constants: tiles, cities, connections, cards, merchants, markets |
 | `js/gameState.js` | Game state, market mechanics, network pathfinding, turn management |
 | `js/gameLogic.js` | All 7 actions + `getDisabledReason()` for tooltip feedback |
-| `js/boardRenderer.js` | SVG board with texture filters, styled connections, geometric icons |
+| `js/industryIcons.js` | Engraved industry illustrations shared by the board and hand cards |
+| `js/boardAssets.js` | Bundled board/component artwork + measured board layout |
+| `js/boardRenderer.js` | SVG board: procedural terrain, frame + score track, calibration mode |
 | `js/uiManager.js` | Phase bar, card selection mode, game log, turn transitions, modals |
 | `js/main.js` | Entry point, setup screen |
 

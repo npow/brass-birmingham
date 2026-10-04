@@ -51,6 +51,16 @@ class UIManager {
         });
 
         // Phase bar cancel button
+        if (typeof ActionIcons !== 'undefined') ActionIcons.mount();
+
+        // Artwork is detected asynchronously; redraw the panels that use it.
+        window.addEventListener('boardassets:ready', () => {
+            if (!this.state) return;
+            this.updateHand();
+            this.updatePlayerMat();
+            this.updateMarkets();
+        });
+
         document.getElementById('phase-cancel-btn').addEventListener('click', () => {
             this.cancelAction();
         });
@@ -149,10 +159,34 @@ class UIManager {
             validCardIndices = this.logic.getValidCardsForAction(playerId, this.selectedAction, target);
         }
 
+        const cardArt = typeof BoardAssets !== 'undefined' && BoardAssets.cardsReady();
+
         player.hand.forEach((card, idx) => {
             const cardEl = document.createElement('div');
             cardEl.className = 'card';
             cardEl.dataset.index = idx;
+
+            // With the printed card faces supplied locally, the card IS the
+            // artwork — no drawn type/icon/name layout on top of it.
+            const art = cardArt ? BoardAssets.cardUrl(card) : null;
+            if (art) {
+                cardEl.classList.add('card-art');
+                if (card.type === CARD_TYPES.LOCATION) cardEl.classList.add('location-card');
+                else if (card.type === CARD_TYPES.INDUSTRY) cardEl.classList.add('industry-card');
+                else cardEl.classList.add('wild-card');
+                cardEl.innerHTML = `<img src="${art}" alt="${card.name || ''}" draggable="false">`;
+                if (this.selectedCard === idx) cardEl.classList.add('selected');
+                if (this.selectedAction === ACTIONS.SCOUT &&
+                        this.pendingData.scoutCards && this.pendingData.scoutCards.includes(idx)) {
+                    cardEl.classList.add('scout-queued');
+                }
+                if (inCardSelectMode && validCardIndices) {
+                    cardEl.classList.add(validCardIndices.includes(idx) ? 'valid-discard' : 'invalid-discard');
+                }
+                cardEl.addEventListener('click', () => this.onCardClicked(idx));
+                container.appendChild(cardEl);
+                return;
+            }
 
             if (card.type === CARD_TYPES.LOCATION) {
                 cardEl.classList.add('location-card');
@@ -283,10 +317,10 @@ class UIManager {
 
             let tilesHtml = '';
             const allTiles = this.state.currentPlayer.industryTiles[type];
-            const iconMarkup = IndustryIcons.renderMarkup(type, 12, 'full');
+            const chips = typeof BoardAssets !== 'undefined' && BoardAssets.tilesReady();
+            const iconMarkup = chips ? null : IndustryIcons.renderMarkup(type, 12, 'full');
             allTiles.forEach(tile => {
                 const cls = tile.used ? 'mat-tile used' : 'mat-tile available';
-
                 // Cost details (money, coal, iron)
                 const costParts = [`£${tile.cost}`];
                 if (tile.costCoal > 0) costParts.push(`${tile.costCoal} coal`);
@@ -312,11 +346,18 @@ class UIManager {
                                 `Cost: ${costStr}\n` +
                                 `Flip: ${tile.vp} VP, +${tile.income} Income${extra}\n` +
                                 `Era: ${eraStr}`;
-
-                tilesHtml += `<div class="${cls}" data-type="${type}" title="${tooltip}">
-                    <div class="mat-tile-icon">${iconMarkup}</div>
-                    <div class="mat-tile-level">${tile.level}</div>
-                </div>`;
+                if (chips) {
+                    // The chip face already carries its level and industry.
+                    const art = BoardAssets.tileUrl(type, tile.level, false);
+                    tilesHtml += `<div class="${cls} mat-tile-art" data-type="${type}" title="${tooltip}">
+                        <img src="${art}" alt="" draggable="false">
+                    </div>`;
+                } else {
+                    tilesHtml += `<div class="${cls}" data-type="${type}" title="${tooltip}">
+                        <div class="mat-tile-icon">${iconMarkup}</div>
+                        <div class="mat-tile-level">${tile.level}</div>
+                    </div>`;
+                }
             });
 
             div.innerHTML = `
@@ -325,6 +366,22 @@ class UIManager {
             `;
             container.appendChild(div);
         }
+    }
+
+    // A wooden cube in projection, matching the ones drawn on board tiles.
+    cubeSvg(kind) {
+        const tones = {
+            coal: ['#4f4f4f', '#2e2e2e', '#1b1b1b'],
+            iron: ['#f0983a', '#c06e1c', '#8d4e0e'],
+            beer: ['#e8cf6a', '#b99a2c', '#866c16'],
+        }[kind] || ['#8a8a8a', '#5f5f5f', '#444'];
+        const [top, left, right] = tones;
+        // 20x20 box: a squashed top diamond over two side faces.
+        return `<svg class="cube-svg" viewBox="0 0 20 20" aria-hidden="true">
+            <polygon points="10,2 18,6 10,10 2,6" fill="${top}"/>
+            <polygon points="2,6 10,10 10,18 2,14" fill="${left}"/>
+            <polygon points="18,6 10,10 10,18 18,14" fill="${right}"/>
+        </svg>`;
     }
 
     updateMarkets() {
@@ -340,7 +397,8 @@ class UIManager {
             const space = document.createElement('div');
             space.className = `market-space${filled ? ' filled coal' : ''}`;
             space.title = `£${COAL_MARKET_PRICES[i]}`;
-            if (!filled) space.textContent = COAL_MARKET_PRICES[i];
+            if (filled) space.innerHTML = this.cubeSvg('coal');
+            else space.textContent = COAL_MARKET_PRICES[i];
             coalTrack.appendChild(space);
         }
 
@@ -356,7 +414,8 @@ class UIManager {
             const space = document.createElement('div');
             space.className = `market-space${filled ? ' filled iron' : ''}`;
             space.title = `£${IRON_MARKET_PRICES[i]}`;
-            if (!filled) space.textContent = IRON_MARKET_PRICES[i];
+            if (filled) space.innerHTML = this.cubeSvg('iron');
+            else space.textContent = IRON_MARKET_PRICES[i];
             ironTrack.appendChild(space);
         }
     }

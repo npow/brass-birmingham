@@ -1244,43 +1244,50 @@ h1, h2, h3 {
 /* Player Mat */
 #player-mat-container {
     width: 310px;
+    min-width: 0;
     padding: 8px 12px;
     border-left: 1px solid var(--border-dark);
     display: flex;
     flex-direction: column;
-    overflow-y: auto;
+    overflow: hidden;
     transition: opacity 0.3s;
 }
 
 #player-mat {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-content: start;
+    gap: 4px 6px;
+    min-height: 0;
+    overflow: hidden;
     flex: 1;
 }
 
 .mat-industry {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
+    min-width: 0;
 }
 
 .mat-industry-label {
-    font-size: 9px;
+    font-size: 8px;
     color: var(--text-muted);
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
 }
 
 .mat-tiles {
     display: flex;
-    gap: 2px;
+    flex-wrap: wrap;
+    gap: 1px;
 }
 
 .mat-tile {
-    width: 28px;
-    height: 28px;
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
     border-radius: 3px;
     display: flex;
     flex-direction: column;
@@ -1333,10 +1340,7 @@ h1, h2, h3 {
    Board SVG Styles
    ============================================================================ */
 
-/* Board background */
-.board-bg {
-    fill: #e9dcba;
-}
+/* ===================== Board (painted relief map) ===================== */
 
 /* Connections */
 .connection-line {
@@ -1347,51 +1351,54 @@ h1, h2, h3 {
 
 .connection-line.highlight {
     stroke: var(--accent-gold) !important;
-    stroke-width: 7 !important;
-    filter: drop-shadow(0 0 4px rgba(201,168,76,0.7));
+    stroke-width: 8 !important;
+    stroke-opacity: 1 !important;
+    stroke-dasharray: none !important;
+    filter: drop-shadow(0 0 6px rgba(201,168,76,0.85));
 }
 
-/* City nodes */
+/* Town plinths */
 .city-group {
     cursor: pointer;
 }
 
 .city-group:hover .city-bg {
     stroke: var(--accent-gold);
-    filter: drop-shadow(0 0 6px rgba(201,168,76,0.55));
+    filter: drop-shadow(0 0 7px rgba(201,168,76,0.6));
 }
 
 .city-label {
     font-family: 'Cinzel', serif;
-    font-size: 10px;
     font-weight: 700;
-    fill: #f0e4c8;
+    letter-spacing: 0.7px;
+    fill: #fdf4e0;
     text-anchor: middle;
+    paint-order: stroke;
+    stroke: rgba(0,0,0,0.5);
+    stroke-width: 1.6px;
+    stroke-linejoin: round;
     pointer-events: none;
 }
 
+/* Fill comes from the region colour set inline — do not override it here. */
 .city-label-bg {
-    fill: #33291e;
-    rx: 4;
-    ry: 4;
+    stroke-linejoin: round;
 }
 
 /* Industry slots on board */
 .industry-slot {
     cursor: pointer;
-    transition: all 0.2s;
+    transition: filter 0.2s;
 }
 
 .industry-slot:hover {
-    filter: drop-shadow(0 0 4px rgba(201,168,76,0.65));
+    filter: drop-shadow(0 0 5px rgba(201,168,76,0.7));
 }
 
 .slot-icon {
-    font-size: 10px;
     text-anchor: middle;
     dominant-baseline: central;
     pointer-events: none;
-    fill: rgba(240,228,200,0.65);
 }
 
 .slot-level {
@@ -1408,42 +1415,43 @@ h1, h2, h3 {
     opacity: 1;
 }
 
-/* Resource cubes on tiles */
+/* Resource cubes on tiles — faces are drawn as solid polygons, no outline */
 .resource-cube {
-    stroke-width: 0.5;
-    stroke: rgba(255,255,255,0.35);
+    stroke: none;
 }
 
 .resource-cube.coal { fill: var(--coal-color); }
 .resource-cube.iron { fill: var(--iron-color); }
 .resource-cube.beer { fill: var(--beer-color); }
 
-/* Merchant locations */
+/* Merchant warehouses */
 .merchant-group {
     cursor: pointer;
 }
 
+.merchant-group:hover .merchant-bg {
+    stroke: var(--accent-gold);
+    filter: drop-shadow(0 0 6px rgba(201,168,76,0.5));
+}
+
+/* Body fill is the merchantStone gradient, set inline. */
 .merchant-bg {
-    fill: #cbb28a;
-    stroke: #6a5138;
-    stroke-width: 1.25;
     rx: 4;
     ry: 4;
 }
 
 .merchant-label {
     font-family: 'Cinzel', serif;
-    font-size: 8.5px;
     font-weight: 700;
-    fill: #33261a;
+    letter-spacing: 0.6px;
+    fill: #e9dcbb;
     text-anchor: middle;
     pointer-events: none;
 }
 
+/* Empty beer spaces; filled barrels are drawn inline. */
 .merchant-slot {
-    stroke: #6a5138;
-    stroke-width: 0.9;
-    fill: none;
+    fill: rgba(0,0,0,0.3);
 }
 
 /* Brewery farm */
@@ -1451,10 +1459,12 @@ h1, h2, h3 {
     cursor: pointer;
 }
 
+.brewery-farm:hover .brewery-farm-bg {
+    stroke: var(--accent-gold);
+    filter: drop-shadow(0 0 6px rgba(201,168,76,0.5));
+}
+
 .brewery-farm-bg {
-    fill: #cbb28a;
-    stroke: #6a5138;
-    stroke-width: 1.25;
     rx: 4;
     ry: 4;
 }
@@ -1466,13 +1476,14 @@ h1, h2, h3 {
 
 /* Highlight for valid placements */
 .highlight-slot {
-    animation: pulse-glow 1.5s ease-in-out infinite;
+    animation: pulse-glow 1.4s ease-in-out infinite;
 }
 
 @keyframes pulse-glow {
-    0%, 100% { filter: drop-shadow(0 0 3px rgba(201,168,76,0.4)); }
-    50% { filter: drop-shadow(0 0 8px rgba(201,168,76,0.8)); }
+    0%, 100% { filter: drop-shadow(0 0 4px rgba(224,186,92,0.65)); }
+    50%      { filter: drop-shadow(0 0 11px rgba(255,208,110,1)); }
 }
+
 
 /* VP/Income indicators on tiles */
 .tile-vp {
@@ -1812,4 +1823,183 @@ h1, h2, h3 {
     stroke: var(--accent-gold) !important;
     stroke-width: 3 !important;
     filter: drop-shadow(0 0 6px rgba(201,168,76,0.6));
+}
+
+
+/* ---- Printed card faces (assets/cards/) ---- */
+/* The art is 500x702. Let aspect-ratio size the box and `contain` do the fit,
+   so a card is never stretched or cropped whatever the hand row does. */
+.card.card-art {
+    padding: 0;
+    overflow: hidden;
+    background: #14110c;
+    border-width: 1px;
+    height: var(--card-height);
+    width: auto;
+    aspect-ratio: 500 / 702;
+    min-width: 0;
+    flex: 0 0 auto;
+}
+
+.card.card-art img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: inherit;
+    -webkit-user-drag: none;
+    user-select: none;
+}
+
+/* Keep the selection and validity cues readable over artwork. */
+.card.card-art.invalid-discard img { filter: grayscale(0.75) brightness(0.45); }
+.card.card-art.valid-discard {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 10px rgba(201,168,76,0.75);
+}
+.card.card-art.selected {
+    border-color: var(--accent-gold);
+    box-shadow: 0 0 14px rgba(201,168,76,0.9);
+}
+.card.card-art.scout-queued img { filter: sepia(0.5) brightness(0.7); }
+
+
+/* ---- Mat tiles showing real chip art ---- */
+.mat-tile.mat-tile-art {
+    padding: 0;
+    overflow: hidden;
+    background: #14110c;
+}
+
+/* Chips are square (238x238), so keep mat tiles square too. */
+.mat-tile.mat-tile-art {
+    aspect-ratio: 1 / 1;
+}
+
+.mat-tile.mat-tile-art img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    -webkit-user-drag: none;
+}
+
+.mat-tile.mat-tile-art.used img { filter: grayscale(0.85) brightness(0.4); }
+
+/* ---- Market cubes ---- */
+.market-space .cube-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.market-space.filled {
+    background: transparent !important;
+    border-color: rgba(201,168,76,0.25);
+    padding: 1px;
+}
+
+
+/* ---- Action buttons: brass plates, matching the board ---- */
+.action-btn {
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.07) 0%, rgba(0,0,0,0.12) 55%, rgba(0,0,0,0.3) 100%),
+        linear-gradient(180deg, #3a3425 0%, #26221a 100%) !important;
+    border: 1px solid #6a5a38 !important;
+    border-left-width: 1px !important;
+    border-radius: 3px !important;
+    color: #e6d6ab !important;
+    font-family: 'Cinzel', serif !important;
+    font-size: 11px !important;
+    letter-spacing: 0.9px !important;
+    text-transform: uppercase;
+    justify-content: center !important;
+    padding: 0 4px !important;
+    white-space: nowrap;
+    position: relative;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.08) inset, 0 2px 4px rgba(0,0,0,0.45);
+    transition: background 0.15s, box-shadow 0.15s, color 0.15s;
+}
+
+/* The per-action colour survives as a thin rule, not a slab. */
+.action-btn::before {
+    content: '';
+    position: absolute;
+    left: 6px;
+    right: 6px;
+    top: 3px;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--action-accent, rgba(201,168,76,0.55));
+    opacity: 0.85;
+}
+
+.action-btn:hover:not(:disabled) {
+    border-color: var(--accent-gold) !important;
+    color: #fff3d4 !important;
+    box-shadow: 0 0 10px rgba(201,168,76,0.45), 0 1px 0 rgba(255,255,255,0.12) inset;
+}
+
+.action-btn:disabled,
+.action-btn[disabled] {
+    opacity: 0.4;
+    filter: saturate(0.3);
+    cursor: not-allowed;
+}
+
+.action-btn.selected,
+.action-btn.active {
+    border-color: var(--accent-gold) !important;
+    background:
+        linear-gradient(180deg, rgba(201,168,76,0.3) 0%, rgba(120,95,35,0.25) 100%),
+        linear-gradient(180deg, #3a3425 0%, #26221a 100%) !important;
+    color: #fff6dd !important;
+}
+
+.action-btn[data-action="build"]   { --action-accent: #7a94a8; }
+.action-btn[data-action="network"] { --action-accent: #5f93b2; }
+.action-btn[data-action="develop"] { --action-accent: #b06f38; }
+.action-btn[data-action="sell"]    { --action-accent: #b5840c; }
+.action-btn[data-action="loan"]    { --action-accent: #bd5742; }
+.action-btn[data-action="scout"]   { --action-accent: #8e6f9c; }
+.action-btn[data-action="pass"]    { --action-accent: #7d7b74; }
+
+
+/* ---- Action icons ---- */
+.action-btn {
+    flex-direction: column !important;
+    gap: 2px !important;
+    padding: 6px 4px !important;
+}
+
+.action-pip {
+    width: auto !important;
+    height: auto !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.action-icon {
+    width: 22px;
+    height: 22px;
+    display: block;
+    color: var(--action-accent, #c9a84c);
+    filter: drop-shadow(0 1px 0 rgba(0,0,0,0.5));
+    transition: color 0.15s, transform 0.15s;
+}
+
+.action-btn:hover:not(:disabled) .action-icon {
+    color: #f2dca6;
+    transform: translateY(-1px);
+}
+
+.action-btn.selected .action-icon,
+.action-btn.active .action-icon {
+    color: #fff6dd;
+}
+
+.action-label-text {
+    padding: 0 !important;
+    flex: 0 0 auto !important;
 }
